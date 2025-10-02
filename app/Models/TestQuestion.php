@@ -24,7 +24,7 @@ class TestQuestion extends Model
     {
         return match ($this->question_type) {
             'caas' => CaasQuestion::find($this->question_id),
-            'teliti' => telitiQuestion::find($this->question_id),
+            'teliti' => TelitiQuestion::find($this->question_id),
             'disc' => DiscQuestion::find($this->question_id),
             default => null
         };

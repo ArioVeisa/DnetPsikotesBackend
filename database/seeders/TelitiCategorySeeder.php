@@ -3,16 +3,16 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\telitiCategory;
+use App\Models\TelitiCategory;
 use Illuminate\Support\Facades\DB;
 
-class telitiCategorySeeder extends Seeder
+class TelitiCategorySeeder extends Seeder
 {
     public function run(): void
     {
         // Disable foreign key checks temporarily
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        telitiCategory::truncate();
+        TelitiCategory::truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
         $categories = [
@@ -27,7 +27,7 @@ class telitiCategorySeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            telitiCategory::create($category);
+            TelitiCategory::create($category);
         }
     }
 }

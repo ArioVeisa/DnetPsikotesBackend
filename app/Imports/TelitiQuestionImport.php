@@ -2,12 +2,12 @@
 
 namespace App\Imports;
 
-use App\Models\telitiQuestion;
+use App\Models\TelitiQuestion;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
-class telitiQuestionImport implements ToModel, WithHeadingRow
+class TelitiQuestionImport implements ToModel, WithHeadingRow
 {
     /**
      * @param array $row
@@ -17,7 +17,7 @@ class telitiQuestionImport implements ToModel, WithHeadingRow
     public function model(array $row)
     {
         Log::info('Imported row:', $row);
-        $question = telitiQuestion::create([
+        $question = TelitiQuestion::create([
             'question_text' => $row['question_text'],
             'category_id' => $row['category_id'],
             'is_active' => isset($row['is_active']) ? filter_var($row['is_active'], FILTER_VALIDATE_BOOLEAN) : true,

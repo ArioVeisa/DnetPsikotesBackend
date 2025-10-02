@@ -10,7 +10,7 @@ use App\Services\LogActivityService;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
-class caasController extends Controller
+class CaasController extends Controller
 {
     public function index()
     {

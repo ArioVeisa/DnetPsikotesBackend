@@ -45,7 +45,7 @@ class CandidateAnswer extends Model
 
     public function questions()
     {
-        return $this->belongsToMany(telitiQuestion::class, 'test_section_questions', 'section_id', 'question_id');
+        return $this->belongsToMany(TelitiQuestion::class, 'test_section_questions', 'section_id', 'question_id');
     }
 
     public function getTotalQuestionsAttribute()

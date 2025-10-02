@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\BankSoal;
 
 use App\Http\Controllers\Controller;
-use App\Imports\telitiQuestionImport;
-use App\Models\telitiQuestion;
+use App\Imports\TelitiQuestionImport;
+use App\Models\TelitiQuestion;
 use App\Services\LogActivityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
-class telitiController extends Controller
+class TelitiController extends Controller
 {
     public function index()
     {
-        $question = telitiQuestion::with('options')->get();
+        $question = TelitiQuestion::with('options')->get();
         return response()->json([
             'data' => $question,
             'status' => 'success',
@@ -38,7 +38,7 @@ class telitiController extends Controller
             'options.*.is_correct' => 'required|boolean',
         ]);
 
-        $question = telitiQuestion::create([
+        $question = TelitiQuestion::create([
             'question_text' => $validatedData['question_text'],
             'category_id' => $validatedData['category_id'],
             'media_path' => $request->file('media') ? $request->file('media')->store('media', 'public') : null,
@@ -88,7 +88,7 @@ class telitiController extends Controller
             'options.*.is_correct' => 'required|boolean',
         ]);
 
-        $question = telitiQuestion::findOrFail($id);
+        $question = TelitiQuestion::findOrFail($id);
         $question->update([
             'question_text' => $validatedData['question_text'],
             'category_id' => $validatedData['category_id'],
@@ -127,7 +127,7 @@ class telitiController extends Controller
 
     public function show($id)
     {
-        $question = telitiQuestion::with('options')->findOrFail($id);
+        $question = TelitiQuestion::with('options')->findOrFail($id);
         return response()->json([
             'data' => $question,
             'status' => 'success',
@@ -137,7 +137,7 @@ class telitiController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        $question = telitiQuestion::findOrFail($id);
+        $question = TelitiQuestion::findOrFail($id);
         $questionText = $question->question_text;
         $question->options()->delete();
         $question->delete();
@@ -162,7 +162,7 @@ class telitiController extends Controller
             'file' => 'required|file|mimes:xlsx,csv,xls',
         ]);
 
-        Excel::import(new telitiQuestionImport, $request->file('file'));
+        Excel::import(new TelitiQuestionImport, $request->file('file'));
 
         // Log activity: HRD importing teliti questions
         LogActivityService::addToLog("Imported teliti questions from file: {$request->file('file')->getClientOriginalName()}", $request);

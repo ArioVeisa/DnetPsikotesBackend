@@ -33,7 +33,7 @@ class Test extends Model
 
     public function telitiQuestions()
     {
-        return $this->belongsToMany(telitiQuestion::class, 'test_questions', 'test_id', 'question_id')
+        return $this->belongsToMany(TelitiQuestion::class, 'test_questions', 'test_id', 'question_id')
             ->withPivot('question_type')
             ->wherePivot('question_type', 'teliti');
     }

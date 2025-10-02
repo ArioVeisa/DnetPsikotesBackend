@@ -4,14 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Results\CaasResultController;
 use App\Http\Controllers\Results\DiscResultController;
-use App\Http\Controllers\Results\telitiResultController;
+use App\Http\Controllers\Results\TelitiResultController;
 use App\Models\Candidate;
 use App\Models\CandidateTest;
 use App\Models\Test;
 use App\Mail\TestInvitationMail;
 use App\Models\CaasQuestion;
 use App\Models\DiscQuestion;
-use App\Models\telitiQuestion;
+use App\Models\TelitiQuestion;
 use App\Models\CandidateAnswer;
 use App\Services\LogActivityService;
 use Illuminate\Http\Request;
@@ -262,7 +262,7 @@ class TestDistributionController extends Controller
                             break;
 
                         case 'teliti':
-                            app(telitiResultController::class)
+                            app(TelitiResultController::class)
                                 ->calculateByIds($candidateTest->id, $section->id);
                             break;
                     }
@@ -316,7 +316,7 @@ class TestDistributionController extends Controller
 
             case 'teliti':
                 $data['selected_option_id'] = $answerData['selected_option_id'];
-                $question = telitiQuestion::findOrFail($answerData['question_id']);
+                $question = TelitiQuestion::findOrFail($answerData['question_id']);
                 $data['is_correct'] = $question->correct_option_id == $answerData['selected_option_id'];
                 break;
 

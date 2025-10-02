@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class telitiCategory extends Model
+class TelitiCategory extends Model
 {
     use HasFactory;
 
@@ -15,6 +15,6 @@ class telitiCategory extends Model
 
     public function questions()
     {
-        return $this->hasMany(telitiCategory::class);
+        return $this->hasMany(TelitiCategory::class);
     }
 }

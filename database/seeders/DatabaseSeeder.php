@@ -20,17 +20,17 @@ class DatabaseSeeder extends Seeder
             // Category seeders (harus dijalankan terlebih dahulu)
             CaasCategorySeeder::class,
             DiscCategorySeeder::class,
-            telitiCategorySeeder::class,
+            TelitiCategorySeeder::class,
             
             // Question seeders
             CaasQuestionSeeder::class,
             DiscQuestionSeeder::class,
-            telitiQuestionSeeder::class,
+            TelitiQuestionSeeder::class,
             
             // Option seeders
             CaasOptionSeeder::class,
             DiscOptionSeeder::class,
-            telitiOptionSeeder::class,
+            TelitiOptionSeeder::class,
             
             // Test dan TestSection seeders
             TestSeeder::class,

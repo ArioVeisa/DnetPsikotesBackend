@@ -8,7 +8,7 @@ use App\Models\Test;
 use App\Models\TestSection;
 use App\Models\CaasQuestion;
 use App\Models\DiscQuestion;
-use App\Models\telitiQuestion;
+use App\Models\TelitiQuestion;
 use Illuminate\Support\Facades\DB;
 
 class TestQuestionSeeder extends Seeder
@@ -63,7 +63,7 @@ class TestQuestionSeeder extends Seeder
                         
                     case 'teliti':
                         // Get random teliti questions
-                        $telitiQuestions = telitiQuestion::inRandomOrder()
+                        $telitiQuestions = TelitiQuestion::inRandomOrder()
                             ->limit($section->question_count)
                             ->get();
                         

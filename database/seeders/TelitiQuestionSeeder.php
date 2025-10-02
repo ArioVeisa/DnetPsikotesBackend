@@ -3,20 +3,20 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\telitiQuestion;
-use App\Models\telitiCategory;
+use App\Models\TelitiQuestion;
+use App\Models\TelitiCategory;
 use Illuminate\Support\Facades\DB;
 
-class telitiQuestionSeeder extends Seeder
+class TelitiQuestionSeeder extends Seeder
 {
     public function run(): void
     {
         // Disable foreign key checks temporarily
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        telitiQuestion::truncate();
+        TelitiQuestion::truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        $categories = telitiCategory::all();
+        $categories = TelitiCategory::all();
         
         $questions = [
             // Kemampuan Verbal
@@ -92,7 +92,7 @@ class telitiQuestionSeeder extends Seeder
         ];
 
         foreach ($questions as $question) {
-            telitiQuestion::create($question);
+            TelitiQuestion::create($question);
         }
     }
 }

@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\BankSoal;
 
 use App\Http\Controllers\Controller;
-use App\Models\telitiCategory;
+use App\Models\TelitiCategory;
 use Illuminate\Http\Request;
 
-class telitiCategoryController extends Controller
+class TelitiCategoryController extends Controller
 {
     public function index()
     {
-        $categories = telitiCategory::all();
+        $categories = TelitiCategory::all();
         return response()->json([
             'data' => $categories,
             'status' => 'success',
@@ -23,7 +23,7 @@ class telitiCategoryController extends Controller
         $validatedData = $request->validate([
             'name' => 'required|string|unique:teliti_categories',
         ]);
-        $category = telitiCategory::create([
+        $category = TelitiCategory::create([
             'name' => $validatedData['name'],
         ]);
 
@@ -36,7 +36,7 @@ class telitiCategoryController extends Controller
 
     public function update(Request $request, $id)
     {
-        $category = telitiCategory::findOrFail($id);
+        $category = TelitiCategory::findOrFail($id);
         $validatedData = $request->validate([
             'name' => 'required|string|unique:teliti_categories',
         ]);
@@ -53,7 +53,7 @@ class telitiCategoryController extends Controller
 
     public function destroy($id)
     {
-        $category = telitiCategory::findOrFail($id);
+        $category = TelitiCategory::findOrFail($id);
         $category->delete();
 
         return response()->json([
@@ -63,7 +63,7 @@ class telitiCategoryController extends Controller
 
     public function show($id)
     {
-        $category = telitiCategory::findOrFail($id);
+        $category = TelitiCategory::findOrFail($id);
         return response()->json([
             'data' => $category,
             'status' => 'success',

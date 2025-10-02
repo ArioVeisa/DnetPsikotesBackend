@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class telitiOption extends Model
+class TelitiOption extends Model
 {
     use HasFactory;
     protected $fillable = [
@@ -15,6 +15,6 @@ class telitiOption extends Model
 
     public function question()
     {
-        return $this->belongsTo(telitiQuestion::class, 'question_id');
+        return $this->belongsTo(TelitiQuestion::class, 'question_id');
     }
 }

@@ -3,20 +3,20 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\telitiOption;
-use App\Models\telitiQuestion;
+use App\Models\TelitiOption;
+use App\Models\TelitiQuestion;
 use Illuminate\Support\Facades\DB;
 
-class telitiOptionSeeder extends Seeder
+class TelitiOptionSeeder extends Seeder
 {
     public function run(): void
     {
         // Disable foreign key checks temporarily
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        telitiOption::truncate();
+        TelitiOption::truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        $questions = telitiQuestion::all();
+        $questions = TelitiQuestion::all();
         
         foreach ($questions as $question) {
             $options = [];
@@ -133,7 +133,7 @@ class telitiOptionSeeder extends Seeder
             }
             
             foreach ($options as $index => $option) {
-                $optionRecord = telitiOption::create([
+                $optionRecord = TelitiOption::create([
                     'question_id' => $question->id,
                     'option_text' => $option['option_text']
                 ]);

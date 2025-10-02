@@ -4,17 +4,17 @@ namespace App\Http\Controllers\Results;
 
 use App\Http\Controllers\Controller;
 use App\Models\CandidateAnswer;
-use App\Models\telitiQuestion;
-use App\Models\telitiResult;
+use App\Models\TelitiQuestion;
+use App\Models\TelitiResult;
 use App\Models\TestSection;
 use App\Services\LogActivityService;
 use Illuminate\Http\Request;
 
-class telitiResultController extends Controller
+class TelitiResultController extends Controller
 {
     public function index()
     {
-        $result = telitiResult::all();
+        $result = TelitiResult::all();
         return response()->json([
             'data' => $result,
             'status' => 'success',
@@ -24,7 +24,7 @@ class telitiResultController extends Controller
 
     public function show(Request $request, $id)
     {
-        $result = telitiResult::where('candidate_test_id', $id)->first();
+        $result = TelitiResult::where('candidate_test_id', $id)->first();
         if (!$result) {
             return response()->json([
                 'data' => null,
@@ -63,7 +63,7 @@ class telitiResultController extends Controller
         $totalQuestions = $section->testQuestions()->count();
 
         foreach ($answers as $answer) {
-            $question = telitiQuestion::find($answer['question_id']);
+            $question = TelitiQuestion::find($answer['question_id']);
             if ($question && $question->correct_option_id == $answer['answer_id']) {
                 $score += 1;
             }
@@ -71,7 +71,7 @@ class telitiResultController extends Controller
 
         $category = $this->getCategory($score);
 
-        telitiResult::updateOrCreate(
+        TelitiResult::updateOrCreate(
             [
                 'candidate_test_id' => $candidateTestId,
                 'section_id' => $sectionId,
