@@ -91,9 +91,13 @@ class CandidateController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|max:100',
+            'email' => 'sometimes|email|unique:candidates,email,' . $candidate->id,
             'phone_number' => 'sometimes|max:20',
             'position' => 'sometimes|max:100',
-            'department' => 'sometimes|max:100'
+            'department' => 'sometimes|max:100',
+            'nik' => 'sometimes|max:16|unique:candidates,nik,' . $candidate->id,
+            'birth_date' => 'sometimes|date',
+            'gender' => 'sometimes|in:male,female'
         ]);
 
         $candidate->update($validated);

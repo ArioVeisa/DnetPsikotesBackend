@@ -30,16 +30,14 @@ services:
 
   db:
     image: mysql:8.0
-    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: secret123
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: laravel
       MYSQL_USER: laravel
-      MYSQL_PASSWORD: laravel_pass
+      MYSQL_PASSWORD:   
     volumes:
       - dbdata:/var/lib/mysql
-    ports:
-      - "3306:3306"
+
 volumes:
   dbdata:
 

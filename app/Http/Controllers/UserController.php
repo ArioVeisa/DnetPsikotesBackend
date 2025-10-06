@@ -70,6 +70,7 @@ class UserController extends Controller
             'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => 'sometimes|string|min:8', // Password opsional
             'role' => 'sometimes|required|in:super_admin,admin,kandidat',
+            'department' => 'sometimes|string|max:255',
         ]);
 
         if ($validator->fails()) {
