@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('target_position');
             $table->string('icon_path')->nullable();
             $table->date('started_date')->nullable();
-            $table->enum('access_type', ['Invitation Only', 'Public']);
+            $table->enum('access_type', ['Invitation Only', 'Public'])->nullable();
             $table->timestamps();
         });
     }

@@ -46,7 +46,7 @@ class DiscResultController extends Controller
         if ($answers === null) {
             $answers = CandidateAnswer::where('candidate_test_id', $candidateTestId)
                 ->where('section_id', $sectionId)
-                ->with(['mostOption', 'leastOption']) // load relasi
+                ->with(['mostOption', 'leastOption'])
                 ->get()
                 ->map(function ($a) {
                     return [
@@ -56,7 +56,7 @@ class DiscResultController extends Controller
                 });
         }
 
-        // Graph1 dan 2
+        // --- Graph1 dan Graph2 (Raw Count) ---
         $most  = ['D' => 0, 'I' => 0, 'S' => 0, 'C' => 0];
         $least = ['D' => 0, 'I' => 0, 'S' => 0, 'C' => 0];
 
@@ -69,30 +69,28 @@ class DiscResultController extends Controller
             }
         }
 
-        // Graph 3
+        // --- Graph3 (Difference) ---
         $diff = [];
         foreach ($most as $dim => $val) {
             $diff[$dim] = $val - $least[$dim];
         }
 
-        // Konversi ke nilai standar (lookup ke norma)
+        // --- Konversi ke Standar (Norma) ---
         $graph1_std = $this->convertToStandard($most, 1);
         $graph2_std = $this->convertToStandard($least, 2);
         $graph3_std = $this->convertToStandard($diff, 3);
 
-        // Tentukan Dominant Type (pakai Graph1 standar)
-        arsort($graph1_std);
-        $topKeys = array_keys($graph1_std);
+        // --- Ambil Dominant Type untuk masing-masing grafik ---
+        $dominant_type_1 = $this->getDominantType($graph1_std);
+        $dominant_type_2 = $this->getDominantType($graph2_std);
+        $dominant_type_3 = $this->getDominantType($graph3_std);
 
-        $dominant_type = $topKeys[0];
+        // --- Interpretasi masing-masing grafik ---
+        $interpretation_1 = $this->getInterpretation($dominant_type_1);
+        $interpretation_2 = $this->getInterpretation($dominant_type_2);
+        $interpretation_3 = $this->getInterpretation($dominant_type_3);
 
-        // kalau selisih <= 2 → gabungkan 2 dimensi teratas
-        if (count($topKeys) > 1 && ($graph1_std[$topKeys[0]] - $graph1_std[$topKeys[1]]) <= 2) {
-            $dominant_type = $topKeys[0] . '-' . $topKeys[1];
-        }
-
-
-
+        // --- Simpan ke Database ---
         DiscResult::updateOrCreate(
             ['candidate_test_id' => $candidateTestId, 'section_id' => $sectionId],
             [
@@ -126,12 +124,17 @@ class DiscResultController extends Controller
                 'std3_s' => $graph3_std['S'],
                 'std3_c' => $graph3_std['C'],
 
-                // Interpretasi
-                'dominant_type' => $dominant_type,
-                'interpretation' => $this->getInterpretation($dominant_type),
+                // Interpretasi & Dominan
+                'dominant_type'   => $dominant_type_1,
+                'interpretation'  => $interpretation_1,
+                'dominant_type_2' => $dominant_type_2,
+                'interpretation_2' => $interpretation_2,
+                'dominant_type_3' => $dominant_type_3,
+                'interpretation_3' => $interpretation_3,
             ]
         );
 
+        // --- Kembalikan hasil ke response ---
         return [
             'graph1_raw' => $most,
             'graph2_raw' => $least,
@@ -139,11 +142,39 @@ class DiscResultController extends Controller
             'graph1_std' => $graph1_std,
             'graph2_std' => $graph2_std,
             'graph3_std' => $graph3_std,
-            'dominant_type' => $dominant_type,
-            'interpretation' => $this->getInterpretation($dominant_type),
+            'dominant_type_1' => $dominant_type_1,
+            'interpretation_1' => $interpretation_1,
+            'dominant_type_2' => $dominant_type_2,
+            'interpretation_2' => $interpretation_2,
+            'dominant_type_3' => $dominant_type_3,
+            'interpretation_3' => $interpretation_3,
         ];
     }
 
+
+    private function getDominantType($graph_std)
+    {
+        $priorityOrder = ['D', 'I', 'S', 'C'];
+
+        // Hanya nilai positif
+        $positiveScores = array_filter($graph_std, fn($v) => $v >= 0);
+
+        if (empty($positiveScores)) {
+            $positiveScores = $graph_std;
+        }
+
+        // Urutkan dengan prioritas
+        uksort($positiveScores, function ($a, $b) use ($positiveScores, $priorityOrder) {
+            if ($positiveScores[$a] === $positiveScores[$b]) {
+                return array_search($a, $priorityOrder) <=> array_search($b, $priorityOrder);
+            }
+            return $positiveScores[$b] <=> $positiveScores[$a];
+        });
+
+        $topKeys = array_slice(array_keys($positiveScores), 0, 3);
+
+        return implode('-', $topKeys);
+    }
 
     // Konversi nilai raw ke standar (VLOOKUP Excel)
     private function convertToStandard($rawScores, $graphType)
@@ -283,46 +314,46 @@ class DiscResultController extends Controller
     private function getInterpretation($dominant_type)
     {
         $map = [
-            'C-D'                  => 'Logical Thinker',
-            'D'                    => 'Establisher',
-            'D/C-D'                => 'Designer',
-            'D/I-D'                => 'Negotiator',
-            'D/I-D-C'              => 'Confident & Determined',
-            'D/I-D-S'              => 'Reformer',
-            'D/I-S-D'              => 'Motivator',
-            'D/S-D-C/S-C-D'        => 'Inquirer',
-            'D-I'                  => 'Pengambil Keputusan',
-            'D-I-S'                => 'Director',
-            'D-S'                  => 'Self-Motivated',
-            'I/C-I-S'              => 'Mediator',
-            'I/C-S-I'              => 'Practitioner',
-            'I-S-C/I-C-S'          => 'Responsive & Thoughtful',
-            'S'                    => 'Specialist',
-            'S/C-S'                => 'Perfectionist',
-            'S-C'                  => 'Peacemaker, Respectful & Accurate',
-            'D-C'                  => 'Challenger',
-            'D-I-C'                => 'Chancellor',
-            'D-S-I'                => 'Director',
-            'D-S-C'                => 'Director',
-            'D-C-I'                => 'Challenger',
-            'D-C-S'                => 'Challenger',
-            'I'                    => 'Communicator',
-            'I-S'                  => 'Advisor',
-            'I-C'                  => 'Assessor',
-            'I-C-D'                => 'Assessor',
-            'I-C-S'                => 'Responsive & Thoughtful',
-            'S-D'                  => 'Self-Motivated',
-            'S-I'                  => 'Advisor',
-            'S-D-I'                => 'Director',
-            'S-I-D'                => 'Advisor',
-            'S-I-C'                => 'Advocate',
-            'S-C-D'                => 'Inquirer',
-            'S-C-I'                => 'Advocate',
-            'C-I'                  => 'Assessor',
-            'C-D-I'                => 'Challenger',
-            'C-D-S'                => 'Contemplator',
-            'C-I-D'                => 'Assessor',
-            'C-S-D'                => 'Precisionist',
+            'C-D'        => 'Logical Thinker, Pendiam, Anti Kritik, Perfeksionis, Cenderung Santai, Detail, Empati, Rapi, Organized, Kaku pada Metode & Prosedur',
+            'D'          => 'Establisher, Individualis, Ego Tinggi, Kurang Sensitif, Kurang Pertimbangan, Efektif, High Motivation, Bersemangat Tinggi, Percaya Diri, Cenderung Nekat, Kreatif, Terlalu Dominan, Agresif, Terlalu Dinamis, Penuh Ambisi',
+            'D/C-D'      => 'Designer, Sensitif, Kurang Cepat, Anti Tekanan, Terlalu Mandiri, Kurang Percaya Orang Lain, Anti Kritik, Dingin, Kreatif, Result Oriented, Suka Tantangan',
+            'D/I-D'      => 'Negotiator, Suka Bergaul, Anti Rutin, Aktif, Terlalu Percaya Diri, Agresif, Optimis, Kurang Detail, Result Oriented',
+            'D/I-D-C'    => 'Confident & Determined, Pandai Memilih Orang, Leader, Good Interpersonal Skill, Dominan, Agresif, Perfeksionis, Good Communication Skill, Aktif, Need Recognition n Reward, Kurang Peduli pada Aturan, Terburu-buru',
+            'D/I-D-S'    => 'Reformer, Mudah Bergaul, Leader, Sadar Diri, Butuh Pujian, Cepat Percaya Orang, Mudah Simpati & Empati, Motivator, Optimis & Positif, Anti Aturan, Kurang Detail, Terlalu Selektif',
+            'D/I-S-D'    => 'Motivator, Leader Kelompok Kecil, Supporter, Sosialisasi Baik, Butuh Ketegasan, Butuh Pujian, Kurang Detail, Agak Kaku, Result Oriented, Good Service, Kurang Managerial',
+            'D/S-D-C'    => 'Inquirer, Full Self Control, Sabar, Penuh Pertimbangan, Selektif, Lambat Adaptasi, Inisiatif Kurang, Kaku, Good Interpersonal, Good Service',
+            'D-I'        => 'Pengambil Keputusan, Pekerja Keras, Leader, Banyak Minat, Dingin, Kurang Pergaulan, Kontrol Emosi, Suka Tantangan, Cepat Bosan, Anti Aturan, Kurang Detail, Argumentatif',
+            'D-I-S'      => 'Director, Pengelola, Enerjik, Agresif, Mudah Bosan, Kurang Focus, Cepat Beradaptasi, Anti Kritik, Arogan, Kurang Detail, Anti Aturan',
+            'D-S'        => 'Self-Motivated, Objektif, Mandiri, Good Planner, Komitmen Target, Good Analytical Think, Good Interpersonal, Cepat Bosan, Monoton, Not Leader',
+            'I/C-I-S'    => 'Mediator, Loyal, Tight Scheduled, Curious, Good Communication Skill, Too Detail, Sistematis, Kaku, Not Leader, Work/Play Conflict',
+            'I/C-S-I'    => 'Practitioner, Perfeksionis, Quality Oriented, Sensitif, Good Interpersonal, Sistematis, Empati, Concern ke Fakta, Loyal, Introvert',
+            'I-S-C'      => 'Responsive & Thoughtful, High Energy, Good Communication, To The Point, Sensitif, Banyak Bicara, Need Recognition, Butuh Sosialisasi, Leadership kurang, Kurang Fokus, Anti Deadline',
+            'S'          => 'Specialist, Stabil, Konsisten, Terkendali, Sabar, Loyal, Sulit Adaptasi, Butuh Situasi Stabil, Process Oriented, Need for Peace, Anti Perubahan',
+            'S/C-S'      => 'Perfectionist, Detail, Sistematis, Teliti, Prosedural, Sulit Adaptasi, Lambat Memutuskan, Empati, Terlalu Mendalam, Concern ke Fakta',
+            'S-C'        => 'Peacemaker, Respectful & Accurate, Sulit Beradaptasi, Anti Kritik, Pendendam, Sukar Berubah, Empati, Introvert, Concern Data, Loyal',
+            'D-C'        => 'Challenger, Tekun, Sensitif, Keputusan Kuat, Kreatif, Reaksi Cepat, Banyak Ide, Perfeksionis, Mandiri, Cermat',
+            'D-I-C'      => 'Chancellor, Ramah, Menyukai Hubungan, Detil, Tepat, Sering Melalaikan Perencanaan, Mudah Beralih Proyek, Menilai Hati-hati',
+            'D-S-I'      => 'Director, Objektif, Analitis, Ingin Terlibat, Memberi Bantuan, Termotivasi Target Pribadi, Stabil, Ulet, Mandiri, Cermat',
+            'D-S-C'      => 'Director, Objektif, Analitis, Tenang, Stabil, Ulet, Mandiri, Cermat, Determinasi Kuat',
+            'D-C-I'      => 'Challenger, Sensitif, Kreatif, Reaksi Cepat, Mencari Solusi, Banyak Ide, Perfeksionis',
+            'D-C-S'      => 'Challenger, Sensitif, Kreatif, Reaksi Cepat, Banyak Ide, Perfeksionis',
+            'I'          => 'Communicator, Antusias, Percaya, Optimis, Persuasif, Bicara Aktif, Impulsif, Emosional, Ramah, Inspirasional',
+            'I-S'        => 'Advisor, Hangat, Simpati, Tenang, Pendengar Baik, Demonstratif, Tidak Memaksakan Ide, Kurang Tegas, Menerima Kritik, Toleran, Penjaga Damai',
+            'I-C'        => 'Assessor, Ramah, Nyaman dengan Orang Asing, Perfeksionis Alamiah, Analitis, Hati-hati, Peduli, Perfeksionis',
+            'I-C-D'      => 'Assessor, Analitis, Hati-hati, Perfeksionis Alamiah, Ramah, Cermat, Terprediksi, Berorientasi Kualitas',
+            'I-C-S'      => 'Responsive & Thoughtful, High Energy, Komunikatif, Sensitif, Banyak Bicara, Butuh Sosialisasi, Kurang Fokus, Anti Kritik, Leadership Kurang',
+            'S-D'        => 'Self-Motivated, Objektif, Mandiri, Planner, Komitmen Target, Menghindari Konflik, Stabil, Tekun',
+            'S-I'        => 'Advisor, Hangat, Simpati, Tenang, Pendengar Baik, Demonstratif, Tidak Memaksakan Ide, Toleran, Penjaga Damai',
+            'S-D-I'      => 'Director, Objektif, Analitis, Determinasi Kuat, Tenang, Stabil, Ulet, Mandiri, Cermat',
+            'S-I-D'      => 'Advisor, Hangat, Simpati, Tenang, Demonstratif, Penjaga Damai',
+            'S-I-C'      => 'Advocate, Stabil, Ramah, Detail, Teguh Pendirian, Mendukung Pihak Lemah, Moderat, Cermat, Andal',
+            'S-C-D'      => 'Inquirer, Orientasi Detil, Teliti, Hati-hati, Penuh Pertimbangan, Lambat Adaptasi, Kaku, Keras Kepala',
+            'S-C-I'      => 'Advocate, Stabil, Ramah, Teguh Pendirian, Mendukung Pihak Lemah, Sulit Membuat Keputusan, Moderat, Cermat',
+            'C-I'        => 'Assessor, Analitis, Hati-hati, Perfeksionis, Peduli, Ramah, Cermat, Berorientasi Kualitas',
+            'C-D-I'      => 'Challenger, Sensitif, Kukuh, Dingin, Membuat Keputusan Faktual, Pendiam, Tidak Mudah Percaya',
+            'C-D-S'      => 'Contemplator, Detil, Perfeksionis, Logis, Analitis, Kompetitif, Fokus pada Mutu, Andal',
+            'C-I-D'      => 'Assessor, Analitis, Hati-hati, Perfeksionis, Ramah, Cermat, Prediktif, Berorientasi Kualitas',
+            'C-S-D'      => 'Precisionist, Sistematis, Prosedural, Teliti, Fokus Detil, Bijaksana, Diplomatis, Perfeksionis, Anti Perubahan Mendadak',
         ];
         return $map[$dominant_type] ?? 'Unmapped Type';
     }

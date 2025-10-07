@@ -44,7 +44,12 @@ class DiscResult extends Model
         'std3_c',
 
         'dominant_type',
+        'dominant_type_2',
+        'dominant_type_3',
+
         'interpretation',
+        'interpretation_2',
+        'interpretation_3',
     ];
 
     public function candidateTest()

@@ -21,20 +21,20 @@ class TestQuestionSeeder extends Seeder
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
         $tests = Test::all();
-        
+
         foreach ($tests as $test) {
             $sections = $test->sections;
-            
+
             foreach ($sections as $section) {
                 $questions = [];
-                
+
                 switch ($section->section_type) {
                     case 'DISC':
                         // Get random DISC questions
                         $discQuestions = DiscQuestion::inRandomOrder()
                             ->limit($section->question_count)
                             ->get();
-                        
+
                         foreach ($discQuestions as $question) {
                             $questions[] = [
                                 'test_id' => $test->id,
@@ -44,13 +44,13 @@ class TestQuestionSeeder extends Seeder
                             ];
                         }
                         break;
-                        
+
                     case 'CAAS':
                         // Get random CAAS questions
                         $caasQuestions = CaasQuestion::inRandomOrder()
                             ->limit($section->question_count)
                             ->get();
-                        
+
                         foreach ($caasQuestions as $question) {
                             $questions[] = [
                                 'test_id' => $test->id,
@@ -60,13 +60,13 @@ class TestQuestionSeeder extends Seeder
                             ];
                         }
                         break;
-                        
+
                     case 'teliti':
                         // Get random teliti questions
                         $telitiQuestions = TelitiQuestion::inRandomOrder()
                             ->limit($section->question_count)
                             ->get();
-                        
+
                         foreach ($telitiQuestions as $question) {
                             $questions[] = [
                                 'test_id' => $test->id,
@@ -77,7 +77,7 @@ class TestQuestionSeeder extends Seeder
                         }
                         break;
                 }
-                
+
                 // Insert questions for this section
                 foreach ($questions as $question) {
                     TestQuestion::create($question);

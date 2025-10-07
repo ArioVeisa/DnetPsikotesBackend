@@ -17,10 +17,10 @@ class TestSectionSeeder extends Seeder
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
         $tests = Test::all();
-        
+
         foreach ($tests as $test) {
             $sections = [];
-            
+
             // Different sections based on position level
             if (in_array($test->target_position, ['Manager', 'Supervisor'])) {
                 // Leadership positions get all three test types
@@ -66,7 +66,7 @@ class TestSectionSeeder extends Seeder
                     ]
                 ];
             }
-            
+
             foreach ($sections as $section) {
                 TestSection::create($section);
             }

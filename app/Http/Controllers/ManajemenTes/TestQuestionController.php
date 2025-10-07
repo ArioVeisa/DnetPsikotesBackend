@@ -48,6 +48,7 @@ class TestQuestionController extends Controller
                 ], 422);
             }
 
+            $questionData['question_type'] = strtolower($questionData['question_type']);
             $savedQuestions[] = TestQuestion::create($questionData);
         }
 
@@ -70,6 +71,7 @@ class TestQuestionController extends Controller
             'sequence' => 'nullable|integer'
         ]);
 
+        $validated['question_type'] = strtolower($validated['question_type']);
         $exists = match ($validated['question_type']) {
             'CAAS' => CaasQuestion::where('id', $validated['question_id'])->exists(),
             'DISC' => DiscQuestion::where('id', $validated['question_id'])->exists(),

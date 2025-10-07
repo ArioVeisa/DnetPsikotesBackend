@@ -16,26 +16,25 @@ class DatabaseSeeder extends Seeder
             // User dan Candidate seeder
             UserSeeder::class,
             CandidateSeeder::class,
-            
+
             // Category seeders (harus dijalankan terlebih dahulu)
             CaasCategorySeeder::class,
             DiscCategorySeeder::class,
             TelitiCategorySeeder::class,
-            
+
             // Question seeders
             CaasQuestionSeeder::class,
             DiscQuestionSeeder::class,
             TelitiQuestionSeeder::class,
-            
+
             // Option seeders
             CaasOptionSeeder::class,
-            DiscOptionSeeder::class,
             TelitiOptionSeeder::class,
-            
+
             // Test dan TestSection seeders
             TestSeeder::class,
             TestSectionSeeder::class,
-            
+
             // TestQuestion seeder (harus dijalankan terakhir karena membutuhkan semua data sebelumnya)
             TestQuestionSeeder::class,
         ]);

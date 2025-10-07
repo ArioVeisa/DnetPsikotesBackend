@@ -44,8 +44,13 @@ return new class extends Migration
             $table->float('std3_c')->nullable();
 
 
-            $table->string('dominant_type', 20)->nullable();    
+            $table->string('dominant_type', 20)->nullable();
+            $table->string('dominant_type_2', 20)->nullable();
+            $table->string('dominant_type_3', 20)->nullable();
+
             $table->text('interpretation')->nullable();
+            $table->text('interpretation_2')->nullable();
+            $table->text('interpretation_3')->nullable();
 
             $table->timestamps();
         });
