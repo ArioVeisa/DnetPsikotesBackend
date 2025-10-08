@@ -49,6 +49,11 @@ Route::middleware('auth:api')->group(function () {
     
     // Dashboard endpoint
     Route::get('dashboard', [DashboardController::class, 'getDashboard']);
+    
+    // Email notification routes
+    Route::post('send-test-completion-email', [App\Http\Controllers\TestEmailController::class, 'sendTestCompletionEmail']);
+    Route::post('send-bulk-test-completion-emails', [App\Http\Controllers\TestEmailController::class, 'sendBulkTestCompletionEmails']);
+    Route::post('test-email-functionality', [App\Http\Controllers\TestEmailController::class, 'testEmailFunctionality']);
 
     // Route untuk User Management (Hanya bisa diakses Super Admin)
     Route::middleware('role:super_admin')->group(function () {

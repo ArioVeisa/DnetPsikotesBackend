@@ -239,9 +239,14 @@ class TestDistributionController extends Controller
                 $this->saveAnswer($candidateTest->id, $answerData);
             }
 
+            // Calculate score first (you might want to implement this based on your scoring logic)
+            $calculatedScore = $this->calculateScore($candidateTest);
+            
+            // Mark as completed with score (this will trigger email notification)
+            $candidateTest->markAsCompleted($calculatedScore);
+            
+            // Update time spent
             $candidateTest->update([
-                'status' => CandidateTest::STATUS_COMPLETED,
-                'completed_at' => now(),
                 'time_spent' => $this->calculateTimeSpent($candidateTest)
             ]);
 
@@ -395,6 +400,23 @@ class TestDistributionController extends Controller
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    private function calculateScore($candidateTest)
+    {
+        // Simple scoring logic - you can customize this based on your requirements
+        // For now, we'll use a basic calculation based on completed sections
+        $totalSections = $candidateTest->test->sections()->count();
+        $completedAnswers = $candidateTest->candidateAnswers()->count();
+        
+        if ($totalSections == 0) {
+            return 0;
+        }
+        
+        // Basic score calculation (0-100)
+        $score = ($completedAnswers / $totalSections) * 100;
+        
+        return (int) round($score);
     }
 
     private function calculateTimeSpent($candidateTest)
