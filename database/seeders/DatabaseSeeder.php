@@ -37,6 +37,9 @@ class DatabaseSeeder extends Seeder
 
             // TestQuestion seeder (harus dijalankan terakhir karena membutuhkan semua data sebelumnya)
             TestQuestionSeeder::class,
+            
+            // CandidateTest seeder (untuk data sample tes)
+            CandidateTestSeeder::class,
         ]);
     }
 }

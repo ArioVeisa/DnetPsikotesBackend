@@ -8,6 +8,7 @@ use App\Http\Controllers\BankSoal\DiscController;
 use App\Http\Controllers\BankSoal\TelitiCategoryController;
 use App\Http\Controllers\BankSoal\TelitiController;
 use App\Http\Controllers\CandidateController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ManajemenTes\SectionController;
 use App\Http\Controllers\ManajemenTes\TestController;
@@ -45,6 +46,9 @@ Route::middleware('auth:api')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('refresh', [AuthController::class, 'refresh']);
     Route::get('me', [AuthController::class, 'me']);
+    
+    // Dashboard endpoint
+    Route::get('dashboard', [DashboardController::class, 'getDashboard']);
 
     // Route untuk User Management (Hanya bisa diakses Super Admin)
     Route::middleware('role:super_admin')->group(function () {

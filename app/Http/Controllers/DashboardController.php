@@ -93,20 +93,27 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get recent activities (last 5)
+     * Get recent activities (last 5) - hanya untuk tes yang sudah selesai
      */
     private function getRecentActivities()
     {
-        $activities = ActivityLog::with(['user:id,name'])
-            ->latest()
+        // Ambil CandidateTest yang sudah completed dengan relasi candidate dan test
+        $completedTests = CandidateTest::with(['candidate:id,name', 'test:id,name'])
+            ->where('status', CandidateTest::STATUS_COMPLETED)
+            ->whereNotNull('completed_at')
+            ->latest('completed_at')
             ->limit(5)
             ->get();
 
-        return $activities->map(function ($activity) {
+        return $completedTests->map(function ($candidateTest) {
+            $candidateName = $candidateTest->candidate ? $candidateTest->candidate->name : 'Unknown Candidate';
+            $testName = $candidateTest->test ? $candidateTest->test->name : 'Unknown Test';
+            
             return [
-                'user_name' => $activity->user ? $activity->user->name : 'System',
-                'description' => $activity->activity,
-                'timestamp' => $activity->created_at->format('Y-m-d H:i:s')
+                'user_name' => $candidateName,
+                'description' => "Menyelesaikan tes: {$testName}",
+                'timestamp' => $candidateTest->completed_at->format('Y-m-d H:i:s'),
+                'status' => 'completed'
             ];
         })->toArray();
     }
