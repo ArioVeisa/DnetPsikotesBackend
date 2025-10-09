@@ -59,6 +59,27 @@ class TelitiController extends Controller
             }
         }
 
+        // 🔹 Untuk Fast Accuracy: jika tidak ada correct option yang diset dari frontend,
+        // tentukan berdasarkan logika "nama | nama" (True jika sama, False jika berbeda)
+        if ($correctOptionId === null && strpos($question->question_text, '|') !== false) {
+            $parts = explode('|', $question->question_text);
+            if (count($parts) === 2) {
+                $itemA = trim($parts[0]);
+                $itemB = trim($parts[1]);
+                $isSame = $itemA === $itemB;
+                
+                // Cari option yang sesuai dengan logika
+                $options = $question->options;
+                foreach ($options as $option) {
+                    $optionText = strtolower(trim($option->option_text));
+                    if (($isSame && $optionText === 'true') || (!$isSame && $optionText === 'false')) {
+                        $correctOptionId = $option->id;
+                        break;
+                    }
+                }
+            }
+        }
+
         // Update pertanyaan dengan opsi yang benar
         if ($correctOptionId) {
             $question->update(['correct_option_id' => $correctOptionId]);
@@ -108,6 +129,27 @@ class TelitiController extends Controller
             // Ambil ID dari opsi yang benar
             if ($optionData['is_correct']) {
                 $correctOptionId = $option->id;
+            }
+        }
+
+        // 🔹 Untuk Fast Accuracy: jika tidak ada correct option yang diset dari frontend,
+        // tentukan berdasarkan logika "nama | nama" (True jika sama, False jika berbeda)
+        if ($correctOptionId === null && strpos($question->question_text, '|') !== false) {
+            $parts = explode('|', $question->question_text);
+            if (count($parts) === 2) {
+                $itemA = trim($parts[0]);
+                $itemB = trim($parts[1]);
+                $isSame = $itemA === $itemB;
+                
+                // Cari option yang sesuai dengan logika
+                $options = $question->options;
+                foreach ($options as $option) {
+                    $optionText = strtolower(trim($option->option_text));
+                    if (($isSame && $optionText === 'true') || (!$isSame && $optionText === 'false')) {
+                        $correctOptionId = $option->id;
+                        break;
+                    }
+                }
             }
         }
 
