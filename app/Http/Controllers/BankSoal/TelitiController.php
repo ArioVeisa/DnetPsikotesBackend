@@ -24,27 +24,43 @@ class TelitiController extends Controller
 
     public function store(Request $request)
     {
+        try {
+            $options = collect($request->input('options', []))->map(function ($option) {
+                $option['is_correct'] = filter_var($option['is_correct'], FILTER_VALIDATE_BOOLEAN);
+                return $option;
+            })->toArray();
 
-        $options = collect($request->input('options', []))->map(function ($option) {
-            $option['is_correct'] = filter_var($option['is_correct'], FILTER_VALIDATE_BOOLEAN);
-            return $option;
-        })->toArray();
+            $validatedData = $request->merge(['options' => $options])->validate([
+                'question_text' => 'required',
+                'category_id' => 'required|exists:teliti_categories,id',
+                'options' => 'required|array|min:2',
+                'options.*.option_text' => 'required|string|max:255',
+                'options.*.is_correct' => 'required|boolean',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data tidak valid',
+                'errors' => $e->errors()
+            ], 422);
+        }
 
-        $validatedData = $request->merge(['options' => $options])->validate([
-            'question_text' => 'required',
-            'category_id' => 'required|exists:teliti_categories,id',
-            'options' => 'required|array|min:2',
-            'options.*.option_text' => 'required|string|max:255',
-            'options.*.is_correct' => 'required|boolean',
-        ]);
-
-        $question = TelitiQuestion::create([
-            'question_text' => $validatedData['question_text'],
-            'category_id' => $validatedData['category_id'],
-            'media_path' => $request->file('media') ? $request->file('media')->store('media', 'public') : null,
-            'is_active' => $request->input('is_active', true),
-            'correct_option_id' => null,
-        ]);
+        try {
+            $question = TelitiQuestion::create([
+                'question_text' => $validatedData['question_text'],
+                'category_id' => $validatedData['category_id'],
+                'media_path' => $request->file('media') ? $request->file('media')->store('media', 'public') : null,
+                'is_active' => $request->input('is_active', true),
+                'correct_option_id' => null,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Teliti question creation error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat menyimpan data. Silakan periksa data yang diisi.',
+                'debug' => $e->getMessage()
+            ], 500);
+        }
 
         $correctOptionId = null;
 

@@ -28,6 +28,11 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+
+// Test routes (no authentication required)
+Route::post('/test/teliti-questions', [\App\Http\Controllers\BankSoal\TelitiController::class, 'store']);
+Route::get('/test/teliti-questions', [\App\Http\Controllers\BankSoal\TelitiController::class, 'index']);
+
 // Endpoint publik untuk login
 Route::post('login', [AuthController::class, 'login']);
 Route::post('forgot-password', [ForgotPasswordController::class, 'forgotPassword']);
@@ -74,8 +79,13 @@ Route::middleware('auth:api')->group(function () {
     // Hanya bisa diakses oleh super_admin dan admin
     Route::get('candidates', [CandidateController::class, 'index'])
         ->middleware('role:super_admin,admin');
+    
+    // Endpoint untuk mendapatkan kandidat yang tersedia untuk test distribution
+    Route::get('candidates/available', [CandidateController::class, 'getAvailableCandidates'])
+        ->middleware('role:super_admin,admin');
 
-    Route::apiResource('candidates', CandidateController::class);
+    Route::apiResource('candidates', CandidateController::class)
+        ->middleware('role:super_admin,admin');
 
     Route::middleware('role:super_admin,admin')->group(function () {
         // Bank Soal

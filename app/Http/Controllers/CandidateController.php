@@ -21,20 +21,75 @@ class CandidateController extends Controller
     }
 
     /**
+     * Menampilkan kandidat yang belum pernah mengikuti test atau yang baru ditambahkan
+     */
+    public function getAvailableCandidates(Request $request)
+    {
+        $testId = $request->query('test_id');
+        
+        // Jika ada test_id, filter kandidat yang belum pernah test dengan test tersebut
+        if ($testId) {
+            $candidates = Candidate::whereDoesntHave('tests', function ($query) use ($testId) {
+                $query->where('test_id', $testId)
+                      ->where('status', '!=', CandidateTest::STATUS_COMPLETED);
+            })->get();
+        } else {
+            // Jika tidak ada test_id, ambil kandidat yang belum pernah test sama sekali
+            $candidates = Candidate::whereDoesntHave('tests', function ($query) {
+                $query->where('status', '!=', CandidateTest::STATUS_COMPLETED);
+            })->get();
+        }
+
+        return response()->json([
+            'data' => $candidates,
+            'message' => 'Available candidates retrieved successfully'
+        ]);
+    }
+
+    /**
      * Menyimpan kandidat baru dengan validasi duplikat NIK (FR-008)
      */
    public function store(Request $request)
     {
-        $validated = $request->validate([
-            'nik' => 'required|unique:candidates|max:16',
-            'name' => 'required|max:100',
-            'email' => 'required|email|unique:candidates',
-            'phone_number' => 'required|max:20',
-            'position' => 'required|max:100',
-            'birth_date' => 'required|date',
-            'gender' => 'required|in:male,female',
-            'department' => 'required|max:100'
-        ]);
+        try {
+            // Validasi dengan pesan error yang spesifik
+            $validated = $request->validate([
+                'nik' => 'required|unique:candidates|max:16',
+                'name' => 'required|max:100',
+                'email' => 'required|email|unique:candidates',
+                'phone_number' => 'required|max:20',
+                'position' => 'required|max:100',
+                'birth_date' => 'required|date',
+                'gender' => 'required|in:male,female',
+                'department' => 'required|max:100'
+            ], [
+                'nik.required' => 'NIK harus diisi',
+                'nik.unique' => 'NIK sudah digunakan',
+                'nik.max' => 'NIK maksimal 16 karakter',
+                'name.required' => 'Nama lengkap harus diisi',
+                'name.max' => 'Nama lengkap maksimal 100 karakter',
+                'email.required' => 'Email harus diisi',
+                'email.email' => 'Format email tidak valid',
+                'email.unique' => 'Email sudah digunakan',
+                'phone_number.required' => 'Nomor telepon harus diisi',
+                'phone_number.max' => 'Nomor telepon maksimal 20 karakter',
+                'position.required' => 'Posisi harus diisi',
+                'position.max' => 'Posisi maksimal 100 karakter',
+                'birth_date.required' => 'Tanggal lahir harus diisi',
+                'birth_date.date' => 'Format tanggal lahir tidak valid',
+                'gender.required' => 'Jenis kelamin harus diisi',
+                'gender.in' => 'Jenis kelamin harus Male atau Female',
+                'department.required' => 'Departemen harus diisi',
+                'department.max' => 'Departemen maksimal 100 karakter',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Return validation errors in the format expected by frontend
+            return response()->json([
+                'success' => false,
+                'message' => 'Data tidak valid',
+                'errors' => $e->errors()
+            ], 422);
+        }
 
         // Validasi duplikat NIK dalam 1 tahun terakhir (FR-008)
          $duplicateCheck = Candidate::where('nik', $request->nik)
@@ -44,22 +99,38 @@ class CandidateController extends Controller
         if ($duplicateCheck) {
             return response()->json([
                 'success' => false,
-                'warning' => 'Kandidat dengan NIK ini sudah mengikuti tes dalam 1 tahun terakhir!',
+                'message' => 'NIK sudah digunakan dalam 1 tahun terakhir',
+                'field' => 'nik',
                 'previous_test' => $duplicateCheck->created_at,
                 'can_continue' => false
             ], 422);
         }
 
-        $candidate = Candidate::create($validated);
+        try {
+            // Mapping gender untuk memastikan kompatibilitas dengan database
+            $validated['gender'] = $validated['gender'] === 'female' ? 'female' : 'male';
+            
+            $candidate = Candidate::create($validated);
 
-        // Log activity: HRD adding new candidate
-        LogActivityService::addToLog("Added new candidate: {$candidate->name} ({$candidate->email})", $request);
+            // Log activity: HRD adding new candidate
+            LogActivityService::addToLog("Added new candidate: {$candidate->name} ({$candidate->email})", $request);
 
-        return response()->json([
-            'success' => true,
-            'data' => $candidate,
-            'message' => 'Kandidat berhasil ditambahkan'
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'data' => $candidate,
+                'message' => 'Kandidat berhasil ditambahkan'
+            ], 201);
+        } catch (\Exception $e) {
+            // Log error untuk debugging
+            \Log::error('Candidate creation error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat menyimpan data. Silakan periksa data yang diisi.',
+                'field' => 'general',
+                'debug' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
