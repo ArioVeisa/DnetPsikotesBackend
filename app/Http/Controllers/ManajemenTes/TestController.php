@@ -23,7 +23,7 @@ class TestController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string',
-            'target_position' => 'required|string',
+            'target_position' => 'nullable|string',
             'icon_path' => 'nullable|string',
             'started_date' => 'nullable|date',
             'sections' => 'required|array|min:1',
@@ -55,7 +55,7 @@ class TestController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string',
-            'target_position' => 'required|string',
+            'target_position' => 'nullable|string',
             'icon_path' => 'nullable|string',
             'started_date' => 'nullable|date',
             'sections' => 'required|array|min:1',
