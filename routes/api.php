@@ -46,6 +46,9 @@ Route::post('/candidate-tests/submit/{token}', [TestDistributionController::clas
 Route::get('candidate-tests/validate/{token}', [TestDistributionController::class, 'validateBeforeSubmit'])
     ->name('candidate-tests.validate');
 
+// Test email functionality (public for testing)
+Route::post('test-email-public', [App\Http\Controllers\TestEmailController::class, 'testEmailFunctionality']);
+
 // Endpoint yang butuh autentikasi (token JWT)
 Route::middleware('auth:api')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
@@ -54,6 +57,10 @@ Route::middleware('auth:api')->group(function () {
     
     // Dashboard endpoint
     Route::get('dashboard', [DashboardController::class, 'getDashboard']);
+    
+    // Test history endpoint
+    Route::get('test-history', [TestDistributionController::class, 'getTestHistory'])
+        ->middleware('role:super_admin,admin');
     
     // Email notification routes
     Route::post('send-test-completion-email', [App\Http\Controllers\TestEmailController::class, 'sendTestCompletionEmail']);

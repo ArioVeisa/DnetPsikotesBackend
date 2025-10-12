@@ -134,7 +134,12 @@ class TestDistributionController extends Controller
             ->firstOrFail();
 
         if ($candidateTest->status === CandidateTest::STATUS_COMPLETED) {
-            abort(403, 'This test has already been completed.');
+            return response()->json([
+                'success' => false,
+                'message' => 'Tes sudah selesai dikerjakan. Anda tidak dapat mengakses link ini lagi.',
+                'completed_at' => $candidateTest->completed_at->format('d F Y, H:i'),
+                'status' => 'completed'
+            ], 403);
         }
 
         if ($candidateTest->isExpired()) {
@@ -148,17 +153,71 @@ class TestDistributionController extends Controller
             LogActivityService::addToLog("Candidate started test: {$candidateTest->test->name} (Candidate: {$candidateTest->candidate->name})", $request);
         }
 
-        $questions = $candidateTest->test
-            ->testQuestions()
-            ->inRandomOrder()
-            ->get();
+        // Ambil sections dengan questions
+        $sections = $candidateTest->test
+            ->sections()
+            ->orderBy('sequence')
+            ->get()
+            ->map(function ($section) {
+                $questions = $section->testQuestions()
+                    ->inRandomOrder()
+                    ->get();
+                
+                return [
+                    'section_id' => $section->id,
+                    'section_type' => $section->section_type,
+                    'duration_minutes' => $section->duration_minutes,
+                    'question_count' => $questions->count(),
+                    'questions' => $questions,
+                ];
+            });
 
         return response()->json([
             'test' => $candidateTest->test,
             'candidate' => $candidateTest->candidate,
             'started_at' => $candidateTest->started_at,
-            'questions' => $questions,
+            'sections' => $sections,
         ]);
+    }
+
+    /**
+     * Get test history for dashboard
+     */
+    public function getTestHistory(Request $request)
+    {
+        try {
+            $completedTests = CandidateTest::with(['candidate', 'test'])
+                ->where('status', CandidateTest::STATUS_COMPLETED)
+                ->orderBy('completed_at', 'desc')
+                ->get()
+                ->map(function ($candidateTest) {
+                    return [
+                        'id' => $candidateTest->id,
+                        'candidate_name' => $candidateTest->candidate->name,
+                        'candidate_email' => $candidateTest->candidate->email,
+                        'candidate_position' => $candidateTest->candidate->position,
+                        'test_name' => $candidateTest->test->name,
+                        'test_target_position' => $candidateTest->test->target_position,
+                        'score' => $candidateTest->score,
+                        'completed_at' => $candidateTest->completed_at->format('d F Y, H:i'),
+                        'time_spent' => $candidateTest->time_spent,
+                        'status' => $candidateTest->status,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $completedTests,
+                'total' => $completedTests->count(),
+                'message' => 'Test history retrieved successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving test history: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
