@@ -83,6 +83,7 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/disc-questions/import', [DiscController::class, 'import']);
 
         // Manajemen Tes
+       Route::delete('/manage-questions/{section_id}/{id}', [TestQuestionController::class, 'deleteBySection']);
         Route::apiResource('test-package', TestController::class);
         Route::apiResource('manage-questions', TestQuestionController::class);
         Route::get('manage-questions/section/{id}', [TestQuestionController::class, 'showSection']);

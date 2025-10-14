@@ -169,4 +169,25 @@ class TestQuestionController extends Controller
             'message' => 'Test with sections and questions retrieved successfully'
         ]);
     }
+
+    public function deleteBySection($section_id, $id)
+    {
+        $testQuestion = TestQuestion::where('section_id', $section_id)
+            ->where('id', $id)
+            ->first();
+
+        if (!$testQuestion) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Question not found in this section.'
+            ], 404);
+        }
+
+        $testQuestion->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Question removed successfully.'
+        ]);
+    }
 }
