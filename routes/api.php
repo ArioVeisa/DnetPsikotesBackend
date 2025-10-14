@@ -62,6 +62,10 @@ Route::middleware('auth:api')->group(function () {
     Route::get('test-history', [TestDistributionController::class, 'getTestHistory'])
         ->middleware('role:super_admin,admin');
     
+    // Test distributions endpoint
+    Route::get('test-distributions', [TestDistributionController::class, 'getActiveDistributions'])
+        ->middleware('role:super_admin,admin');
+    
     // Email notification routes
     Route::post('send-test-completion-email', [App\Http\Controllers\TestEmailController::class, 'sendTestCompletionEmail']);
     Route::post('send-bulk-test-completion-emails', [App\Http\Controllers\TestEmailController::class, 'sendBulkTestCompletionEmails']);
@@ -90,6 +94,16 @@ Route::middleware('auth:api')->group(function () {
     // Endpoint untuk mendapatkan kandidat yang tersedia untuk test distribution
     Route::get('candidates/available', [CandidateController::class, 'getAvailableCandidates'])
         ->middleware('role:super_admin,admin');
+    
+    // Endpoint untuk load existing candidates yang belum pernah test
+    Route::get('candidates/load-existing', [CandidateController::class, 'loadExistingCandidates'])
+        ->middleware('role:super_admin,admin');
+    Route::get('candidates/test-distribution-candidates', [CandidateController::class, 'getTestDistributionCandidates'])
+        ->middleware('role:super_admin,admin');
+    Route::post('candidates/add-to-test-distribution', [CandidateController::class, 'addToTestDistribution'])
+        ->middleware('role:super_admin,admin');
+    Route::post('candidates/remove-from-test-distribution', [CandidateController::class, 'removeFromTestDistribution'])
+        ->middleware('role:super_admin,admin');
 
     Route::apiResource('candidates', CandidateController::class)
         ->middleware('role:super_admin,admin');
@@ -116,6 +130,7 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/test-package/{id}/duplicate', [TestController::class, 'duplicate']);
 
         Route::post('/candidate-tests/invite', [TestDistributionController::class, 'inviteCandidates']);
+        Route::delete('/test-distributions/{testId}', [TestDistributionController::class, 'deleteDistribution']);
 
         // Result Test
         Route::apiResource('teliti-results', TelitiResultController::class);

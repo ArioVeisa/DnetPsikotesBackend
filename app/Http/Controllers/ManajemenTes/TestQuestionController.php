@@ -48,7 +48,7 @@ class TestQuestionController extends Controller
                 ], 422);
             }
 
-            $questionData['question_type'] = strtolower($questionData['question_type']);
+            // Keep question_type as is (uppercase for DISC and CAAS, lowercase for teliti)
             $savedQuestions[] = TestQuestion::create($questionData);
         }
 

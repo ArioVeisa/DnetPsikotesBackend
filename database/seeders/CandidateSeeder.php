@@ -10,10 +10,8 @@ class CandidateSeeder extends Seeder
 {
     public function run(): void
     {
-        // Disable foreign key checks temporarily
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // Clear existing candidates
         Candidate::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
         Candidate::create([
             'name' => 'Budi Santoso',
@@ -33,7 +31,7 @@ class CandidateSeeder extends Seeder
             'email' => 'citra.lestari@example.com',
             'position' => 'Staff',
             'birth_date'   => '1990-05-10',
-            'gender' => 'famale',
+            'gender' => 'female',
             'department' => 'IT'
         ]);
 
@@ -44,7 +42,7 @@ class CandidateSeeder extends Seeder
             'email' => 'doni.firmansyah@example.com',
             'position' => 'Manager',
             'birth_date'   => '1990-05-10',
-            'gender' => 'famale',
+            'gender' => 'female',
             'department' => 'HRD'
         ]);
     }

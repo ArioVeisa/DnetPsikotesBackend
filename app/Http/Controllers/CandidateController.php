@@ -26,15 +26,26 @@ class CandidateController extends Controller
     public function getAvailableCandidates(Request $request)
     {
         $testId = $request->query('test_id');
+        $includeExisting = $request->query('include_existing', 'false');
         
-        // Jika ada test_id, filter kandidat yang belum pernah test dengan test tersebut
+        // Untuk test distribution baru, default tidak include existing candidates
+        // Hanya return empty array kecuali explicitly diminta
+        if ($includeExisting !== 'true') {
+            return response()->json([
+                'data' => [],
+                'message' => 'No existing candidates loaded. Use "Add Candidate" to add new candidates.'
+            ]);
+        }
+        
+        // Jika include_existing=true, baru tampilkan kandidat yang available
         if ($testId) {
+            // Filter kandidat yang belum pernah test dengan test tersebut
             $candidates = Candidate::whereDoesntHave('tests', function ($query) use ($testId) {
                 $query->where('test_id', $testId)
                       ->where('status', '!=', CandidateTest::STATUS_COMPLETED);
             })->get();
         } else {
-            // Jika tidak ada test_id, ambil kandidat yang belum pernah test sama sekali
+            // Filter kandidat yang belum pernah test sama sekali
             $candidates = Candidate::whereDoesntHave('tests', function ($query) {
                 $query->where('status', '!=', CandidateTest::STATUS_COMPLETED);
             })->get();
@@ -44,6 +55,147 @@ class CandidateController extends Controller
             'data' => $candidates,
             'message' => 'Available candidates retrieved successfully'
         ]);
+    }
+
+    /**
+     * Load existing candidates yang belum pernah test dengan test package tertentu
+     */
+    public function loadExistingCandidates(Request $request)
+    {
+        $testId = $request->query('test_id');
+        
+        if ($testId) {
+            // Filter kandidat yang belum pernah test dengan test tersebut
+            $candidates = Candidate::whereDoesntHave('tests', function ($query) use ($testId) {
+                $query->where('test_id', $testId)
+                      ->where('status', '!=', CandidateTest::STATUS_COMPLETED);
+            })->get();
+        } else {
+            // Filter kandidat yang belum pernah test sama sekali
+            $candidates = Candidate::whereDoesntHave('tests', function ($query) {
+                $query->where('status', '!=', CandidateTest::STATUS_COMPLETED);
+            })->get();
+        }
+
+        return response()->json([
+            'data' => $candidates,
+            'message' => 'Existing available candidates loaded successfully'
+        ]);
+    }
+
+    /**
+     * Get candidates that are already added to a specific test distribution
+     */
+    public function getTestDistributionCandidates(Request $request)
+    {
+        $testId = $request->query('test_id');
+        
+        if (!$testId) {
+            return response()->json([
+                'data' => [],
+                'message' => 'Test ID is required'
+            ], 400);
+        }
+
+        // Get candidates from test_distribution_candidates table
+        $candidates = \App\Models\TestDistributionCandidate::where('test_id', $testId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'data' => $candidates,
+            'message' => 'Test distribution candidates loaded successfully'
+        ]);
+    }
+
+    /**
+     * Remove candidate from test distribution
+     */
+    public function removeFromTestDistribution(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:test_distribution_candidates,id',
+        ]);
+
+        try {
+            $testDistributionCandidate = \App\Models\TestDistributionCandidate::findOrFail($request->id);
+            $candidateName = $testDistributionCandidate->name;
+            
+            // Delete from test_distribution_candidates table
+            $testDistributionCandidate->delete();
+
+            // Log activity
+            LogActivityService::addToLog("Removed candidate {$candidateName} from test distribution", $request);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Candidate removed from test distribution successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error removing candidate from test distribution: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Add new candidate to test distribution (save to both tables)
+     */
+    public function addToTestDistribution(Request $request)
+    {
+        $request->validate([
+            'test_id' => 'required|exists:tests,id',
+            'name' => 'required|string|max:255',
+            'nik' => 'required|string|max:255|unique:candidates,nik|unique:test_distribution_candidates,nik',
+            'phone_number' => 'required|string|max:20',
+            'email' => 'required|email|max:255',
+            'position' => 'required|string|max:255',
+            'birth_date' => 'required|date',
+            'gender' => 'required|in:male,female',
+            'department' => 'required|string|max:255',
+        ]);
+
+        try {
+            // Save to global candidates table
+            $globalCandidate = Candidate::create([
+                'name' => $request->name,
+                'nik' => $request->nik,
+                'phone_number' => $request->phone_number,
+                'email' => $request->email,
+                'position' => $request->position,
+                'birth_date' => $request->birth_date,
+                'gender' => $request->gender,
+                'department' => $request->department,
+            ]);
+
+            // Save to test distribution candidates table
+            $testCandidate = new \App\Models\TestDistributionCandidate();
+            $testCandidate->test_id = $request->test_id;
+            $testCandidate->name = $request->name;
+            $testCandidate->nik = $request->nik;
+            $testCandidate->phone_number = $request->phone_number;
+            $testCandidate->email = $request->email;
+            $testCandidate->position = $request->position;
+            $testCandidate->birth_date = $request->birth_date;
+            $testCandidate->gender = $request->gender;
+            $testCandidate->department = $request->department;
+            $testCandidate->status = 'pending';
+            $testCandidate->save();
+
+            return response()->json([
+                'success' => true,
+                'data' => $testCandidate,
+                'global_candidate' => $globalCandidate,
+                'message' => 'Candidate added to test distribution successfully'
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error adding candidate: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

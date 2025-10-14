@@ -16,9 +16,9 @@ class TestQuestionSeeder extends Seeder
     public function run(): void
     {
         // Disable foreign key checks temporarily
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // Clear existing records
         TestQuestion::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // Foreign key checks enabled
 
         $tests = Test::all();
 
@@ -40,7 +40,7 @@ class TestQuestionSeeder extends Seeder
                                 'test_id' => $test->id,
                                 'section_id' => $section->id,
                                 'question_id' => $question->id,
-                                'question_type' => 'disc'
+                                'question_type' => 'DISC'
                             ];
                         }
                         break;
@@ -56,7 +56,7 @@ class TestQuestionSeeder extends Seeder
                                 'test_id' => $test->id,
                                 'section_id' => $section->id,
                                 'question_id' => $question->id,
-                                'question_type' => 'caas'
+                                'question_type' => 'CAAS'
                             ];
                         }
                         break;

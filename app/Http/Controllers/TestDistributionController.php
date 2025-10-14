@@ -31,14 +31,23 @@ class TestDistributionController extends Controller
     {
         $request->validate([
             'candidate_ids' => 'required|array',
-            'candidate_ids.*' => 'exists:candidates,id',
+            'candidate_ids.*' => 'exists:test_distribution_candidates,id',
             'test_id' => 'required|exists:tests,id',
             'custom_message' => 'nullable|string',
         ]);
 
         $test = Test::findOrFail($request->test_id);
 
-        $duplicates = CandidateTest::whereIn('candidate_id', $request->candidate_ids)
+        // Get candidate IDs from test_distribution_candidates table
+        $testDistributionCandidateIds = $request->candidate_ids;
+        $testDistributionCandidates = \App\Models\TestDistributionCandidate::whereIn('id', $testDistributionCandidateIds)->get();
+        $candidateEmails = $testDistributionCandidates->pluck('email')->toArray();
+        
+        // Check for duplicates using email addresses
+        $existingCandidates = Candidate::whereIn('email', $candidateEmails)->get();
+        $existingCandidateIds = $existingCandidates->pluck('id')->toArray();
+        
+        $duplicates = CandidateTest::whereIn('candidate_id', $existingCandidateIds)
             ->where('test_id', $test->id)
             ->where('status', '!=', CandidateTest::STATUS_COMPLETED)
             ->with('candidate')
@@ -61,7 +70,25 @@ class TestDistributionController extends Controller
         $invitations = [];
 
         foreach ($request->candidate_ids as $candidateId) {
-            $candidate = Candidate::findOrFail($candidateId);
+            // Get candidate from test_distribution_candidates table
+            $testDistributionCandidate = \App\Models\TestDistributionCandidate::findOrFail($candidateId);
+            
+            // Find corresponding candidate in candidates table by email
+            $candidate = Candidate::where('email', $testDistributionCandidate->email)->first();
+            
+            if (!$candidate) {
+                // If candidate doesn't exist in candidates table, create it
+                $candidate = Candidate::create([
+                    'name' => $testDistributionCandidate->name,
+                    'nik' => $testDistributionCandidate->nik,
+                    'phone_number' => $testDistributionCandidate->phone_number,
+                    'email' => $testDistributionCandidate->email,
+                    'position' => $testDistributionCandidate->position,
+                    'birth_date' => $testDistributionCandidate->birth_date,
+                    'gender' => $testDistributionCandidate->gender,
+                    'department' => $testDistributionCandidate->department,
+                ]);
+            }
 
             $candidateTest = CandidateTest::create([
                 'candidate_id' => $candidate->id,
@@ -519,5 +546,134 @@ class TestDistributionController extends Controller
         }
 
         return count($expiredTests) . ' tes telah disubmit otomatis';
+    }
+
+    /**
+     * Get active test distributions for dashboard
+     */
+    public function getActiveDistributions(Request $request)
+    {
+        try {
+            // Ambil semua test yang memiliki candidate_tests (sudah didistribusikan)
+            $distributions = Test::with(['candidateTests.candidate'])
+                ->whereHas('candidateTests')
+                ->get()
+                ->map(function ($test) {
+                    $candidateTests = $test->candidateTests;
+                    $totalCandidates = $candidateTests->count();
+                    
+                    // Hitung status berdasarkan candidate tests
+                    $status = $this->determineTestStatus($candidateTests);
+                    
+                    // Ambil tanggal mulai dari test atau dari candidate test pertama
+                    $startDate = $test->started_date ?: $candidateTests->min('created_at')?->format('Y-m-d');
+                    
+                    return [
+                        'id' => $test->id,
+                        'testName' => $test->name,
+                        'category' => $test->target_position,
+                        'startDate' => $startDate,
+                        'endDate' => $test->started_date ? date('Y-m-d', strtotime($test->started_date . ' +7 days')) : null,
+                        'candidatesTotal' => $totalCandidates,
+                        'status' => $status,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $distributions,
+                'total' => $distributions->count(),
+                'message' => 'Active distributions retrieved successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving distributions: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete test distribution
+     */
+    public function deleteDistribution(Request $request, $testId)
+    {
+        try {
+            $test = Test::findOrFail($testId);
+            
+            // Check if user has permission to delete distribution
+            if (!auth()->user() || (auth()->user()->role !== 'super_admin' && auth()->user()->role !== 'admin')) {
+                abort(403, 'Unauthorized action.');
+            }
+
+            // Check if there are any completed tests - prevent deletion if tests are completed
+            $completedTests = $test->candidateTests()->where('status', CandidateTest::STATUS_COMPLETED)->count();
+            if ($completedTests > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete test distribution that has completed tests'
+                ], 422);
+            }
+
+            // Delete related candidate tests first
+            $test->candidateTests()->delete();
+            
+            // Delete the test
+            $test->delete();
+
+            // Log activity
+            LogActivityService::addToLog("Deleted test distribution: {$test->name}", $request);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Test distribution deleted successfully'
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Test distribution not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting test distribution: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Determine test status based on candidate tests
+     */
+    private function determineTestStatus($candidateTests)
+    {
+        $totalTests = $candidateTests->count();
+        $completedTests = $candidateTests->where('status', CandidateTest::STATUS_COMPLETED)->count();
+        $inProgressTests = $candidateTests->where('status', CandidateTest::STATUS_IN_PROGRESS)->count();
+        $notStartedTests = $candidateTests->where('status', CandidateTest::STATUS_NOT_STARTED)->count();
+
+        // Jika semua test selesai
+        if ($completedTests === $totalTests) {
+            return 'Completed';
+        }
+
+        // Jika ada yang sedang berjalan
+        if ($inProgressTests > 0) {
+            return 'Ongoing';
+        }
+
+        // Jika belum ada yang mulai dan masih dalam periode valid
+        if ($notStartedTests === $totalTests) {
+            $firstTest = $candidateTests->first();
+            if ($firstTest && !$firstTest->isExpired()) {
+                return 'Scheduled';
+            } else {
+                return 'Expired';
+            }
+        }
+
+        // Default
+        return 'Ongoing';
     }
 }

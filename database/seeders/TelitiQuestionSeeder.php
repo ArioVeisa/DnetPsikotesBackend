@@ -12,9 +12,9 @@ class TelitiQuestionSeeder extends Seeder
     public function run(): void
     {
         // Disable foreign key checks temporarily
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // Clear existing records
         TelitiQuestion::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // Foreign key checks enabled
 
         $categories = TelitiCategory::all();
 
