@@ -12,12 +12,12 @@ class TelitiQuestionSeeder extends Seeder
     public function run(): void
     {
         // Disable foreign key checks temporarily
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // Clear existing records
         TelitiQuestion::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // Foreign key checks enabled
 
         $categories = TelitiCategory::all();
-        
+
         $questions = [
             // Kemampuan Verbal
             [
@@ -30,7 +30,7 @@ class TelitiQuestionSeeder extends Seeder
                 'category_id' => $categories->where('name', 'Kemampuan Verbal')->first()->id,
                 'is_active' => true
             ],
-            
+
             // Kemampuan Numerik
             [
                 'question_text' => 'Berapakah hasil dari 15% dari 200?',
@@ -42,7 +42,7 @@ class TelitiQuestionSeeder extends Seeder
                 'category_id' => $categories->where('name', 'Kemampuan Numerik')->first()->id,
                 'is_active' => true
             ],
-            
+
             // Kemampuan Logika
             [
                 'question_text' => 'Jika semua A adalah B, dan semua B adalah C, maka:',
@@ -54,35 +54,35 @@ class TelitiQuestionSeeder extends Seeder
                 'category_id' => $categories->where('name', 'Kemampuan Logika')->first()->id,
                 'is_active' => true
             ],
-            
+
             // Kemampuan Spasial
             [
                 'question_text' => 'Jika sebuah persegi diputar 180 derajat, bagaimana posisinya?',
                 'category_id' => $categories->where('name', 'Kemampuan Spasial')->first()->id,
                 'is_active' => true
             ],
-            
+
             // Kemampuan Memori
             [
                 'question_text' => 'Hafalkan urutan warna berikut: Merah, Biru, Kuning, Hijau, Ungu. Warna apa yang berada di posisi ketiga?',
                 'category_id' => $categories->where('name', 'Kemampuan Memori')->first()->id,
                 'is_active' => true
             ],
-            
+
             // Kemampuan Konsentrasi
             [
                 'question_text' => 'Dalam teks berikut, hitung berapa kali huruf "A" muncul: "Anak-anak bermain di taman yang asri."',
                 'category_id' => $categories->where('name', 'Kemampuan Konsentrasi')->first()->id,
                 'is_active' => true
             ],
-            
+
             // Kemampuan Analitis
             [
                 'question_text' => 'Jika 3x + 5 = 20, berapakah nilai x?',
                 'category_id' => $categories->where('name', 'Kemampuan Analitis')->first()->id,
                 'is_active' => true
             ],
-            
+
             // Kemampuan Pemecahan Masalah
             [
                 'question_text' => 'Sebuah mobil menempuh jarak 240 km dalam waktu 4 jam. Berapakah kecepatan rata-rata mobil tersebut?',

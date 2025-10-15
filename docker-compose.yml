@@ -8,15 +8,15 @@ services:
     working_dir: /var/www/html
     environment:
       - COMPOSER_ALLOW_SUPERUSER=1
-      - DB_CONNECTION=mysql
+      - DB_CONNECTION=pgsql
       - DB_HOST=db
-      - DB_PORT=3306
+      - DB_PORT=5432
       - DB_DATABASE=laravel
       - DB_USERNAME=laravel
       - DB_PASSWORD=secret
     depends_on:
       - db
-    command: bash -lc "cp -f .env.docker .env && php -r 'while(true){$c=@mysqli_connect(getenv(\"DB_HOST\"),getenv(\"DB_USERNAME\"),getenv(\"DB_PASSWORD\"));if($c){mysqli_close($c);break;}sleep(1);}'; php artisan migrate --force || true; php-fpm"
+    command: bash -lc "cp -f .env.docker .env && php -r 'while(true){$c=@pg_connect(\"host=\".getenv(\"DB_HOST\").\" port=\".getenv(\"DB_PORT\").\" dbname=\".getenv(\"DB_DATABASE\").\" user=\".getenv(\"DB_USERNAME\").\" password=\".getenv(\"DB_PASSWORD\"));if($c){pg_close($c);break;}sleep(1);}'; php artisan migrate --force || true; php-fpm"
 
   web:
     image: nginx:stable
@@ -29,17 +29,17 @@ services:
       - app
 
   db:
-    image: mysql:8.0
+    image: postgres:15
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: secret123
-      MYSQL_DATABASE: laravel
-      MYSQL_USER: laravel
-      MYSQL_PASSWORD: laravel_pass
+      POSTGRES_ROOT_PASSWORD: secret123
+      POSTGRES_DB: laravel
+      POSTGRES_USER: laravel
+      POSTGRES_PASSWORD: secret
     volumes:
-      - dbdata:/var/lib/mysql
+      - dbdata:/var/lib/postgresql/data
     ports:
-      - "3306:3306"
+      - "5432:5432"
 volumes:
   dbdata:
 

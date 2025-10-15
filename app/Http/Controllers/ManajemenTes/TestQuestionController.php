@@ -48,6 +48,7 @@ class TestQuestionController extends Controller
                 ], 422);
             }
 
+            // Keep question_type as is (uppercase for DISC and CAAS, lowercase for teliti)
             $savedQuestions[] = TestQuestion::create($questionData);
         }
 
@@ -70,6 +71,7 @@ class TestQuestionController extends Controller
             'sequence' => 'nullable|integer'
         ]);
 
+        $validated['question_type'] = strtolower($validated['question_type']);
         $exists = match ($validated['question_type']) {
             'CAAS' => CaasQuestion::where('id', $validated['question_id'])->exists(),
             'DISC' => DiscQuestion::where('id', $validated['question_id'])->exists(),

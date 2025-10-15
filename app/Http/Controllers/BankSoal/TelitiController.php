@@ -24,27 +24,43 @@ class TelitiController extends Controller
 
     public function store(Request $request)
     {
+        try {
+            $options = collect($request->input('options', []))->map(function ($option) {
+                $option['is_correct'] = filter_var($option['is_correct'], FILTER_VALIDATE_BOOLEAN);
+                return $option;
+            })->toArray();
 
-        $options = collect($request->input('options', []))->map(function ($option) {
-            $option['is_correct'] = filter_var($option['is_correct'], FILTER_VALIDATE_BOOLEAN);
-            return $option;
-        })->toArray();
+            $validatedData = $request->merge(['options' => $options])->validate([
+                'question_text' => 'required',
+                'category_id' => 'required|exists:teliti_categories,id',
+                'options' => 'required|array|min:2',
+                'options.*.option_text' => 'required|string|max:255',
+                'options.*.is_correct' => 'required|boolean',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data tidak valid',
+                'errors' => $e->errors()
+            ], 422);
+        }
 
-        $validatedData = $request->merge(['options' => $options])->validate([
-            'question_text' => 'required',
-            'category_id' => 'required|exists:teliti_categories,id',
-            'options' => 'required|array|min:2',
-            'options.*.option_text' => 'required|string|max:255',
-            'options.*.is_correct' => 'required|boolean',
-        ]);
-
-        $question = TelitiQuestion::create([
-            'question_text' => $validatedData['question_text'],
-            'category_id' => $validatedData['category_id'],
-            'media_path' => $request->file('media') ? $request->file('media')->store('media', 'public') : null,
-            'is_active' => $request->input('is_active', true),
-            'correct_option_id' => null,
-        ]);
+        try {
+            $question = TelitiQuestion::create([
+                'question_text' => $validatedData['question_text'],
+                'category_id' => $validatedData['category_id'],
+                'media_path' => $request->file('media') ? $request->file('media')->store('media', 'public') : null,
+                'is_active' => $request->input('is_active', true),
+                'correct_option_id' => null,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Teliti question creation error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat menyimpan data. Silakan periksa data yang diisi.',
+                'debug' => $e->getMessage()
+            ], 500);
+        }
 
         $correctOptionId = null;
 
@@ -56,6 +72,27 @@ class TelitiController extends Controller
             // Ambil ID dari opsi yang benar
             if ($optionData['is_correct']) {
                 $correctOptionId = $option->id;
+            }
+        }
+
+        // 🔹 Untuk Fast Accuracy: jika tidak ada correct option yang diset dari frontend,
+        // tentukan berdasarkan logika "nama | nama" (True jika sama, False jika berbeda)
+        if ($correctOptionId === null && strpos($question->question_text, '|') !== false) {
+            $parts = explode('|', $question->question_text);
+            if (count($parts) === 2) {
+                $itemA = trim($parts[0]);
+                $itemB = trim($parts[1]);
+                $isSame = $itemA === $itemB;
+                
+                // Cari option yang sesuai dengan logika
+                $options = $question->options;
+                foreach ($options as $option) {
+                    $optionText = strtolower(trim($option->option_text));
+                    if (($isSame && $optionText === 'true') || (!$isSame && $optionText === 'false')) {
+                        $correctOptionId = $option->id;
+                        break;
+                    }
+                }
             }
         }
 
@@ -108,6 +145,27 @@ class TelitiController extends Controller
             // Ambil ID dari opsi yang benar
             if ($optionData['is_correct']) {
                 $correctOptionId = $option->id;
+            }
+        }
+
+        // 🔹 Untuk Fast Accuracy: jika tidak ada correct option yang diset dari frontend,
+        // tentukan berdasarkan logika "nama | nama" (True jika sama, False jika berbeda)
+        if ($correctOptionId === null && strpos($question->question_text, '|') !== false) {
+            $parts = explode('|', $question->question_text);
+            if (count($parts) === 2) {
+                $itemA = trim($parts[0]);
+                $itemB = trim($parts[1]);
+                $isSame = $itemA === $itemB;
+                
+                // Cari option yang sesuai dengan logika
+                $options = $question->options;
+                foreach ($options as $option) {
+                    $optionText = strtolower(trim($option->option_text));
+                    if (($isSame && $optionText === 'true') || (!$isSame && $optionText === 'false')) {
+                        $correctOptionId = $option->id;
+                        break;
+                    }
+                }
             }
         }
 

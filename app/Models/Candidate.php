@@ -23,6 +23,11 @@ class Candidate extends Model
         'expires_at',
     ];
 
+    protected $casts = [
+        'birth_date' => 'date',
+        'gender' => 'string',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

@@ -8,6 +8,7 @@ use App\Http\Controllers\BankSoal\DiscController;
 use App\Http\Controllers\BankSoal\TelitiCategoryController;
 use App\Http\Controllers\BankSoal\TelitiController;
 use App\Http\Controllers\CandidateController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ManajemenTes\SectionController;
 use App\Http\Controllers\ManajemenTes\TestController;
@@ -27,6 +28,11 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+
+// Test routes (no authentication required)
+Route::post('/test/teliti-questions', [\App\Http\Controllers\BankSoal\TelitiController::class, 'store']);
+Route::get('/test/teliti-questions', [\App\Http\Controllers\BankSoal\TelitiController::class, 'index']);
+
 // Endpoint publik untuk login
 Route::post('login', [AuthController::class, 'login']);
 Route::post('forgot-password', [ForgotPasswordController::class, 'forgotPassword']);
@@ -40,11 +46,30 @@ Route::post('/candidate-tests/submit/{token}', [TestDistributionController::clas
 Route::get('candidate-tests/validate/{token}', [TestDistributionController::class, 'validateBeforeSubmit'])
     ->name('candidate-tests.validate');
 
+// Test email functionality (public for testing)
+Route::post('test-email-public', [App\Http\Controllers\TestEmailController::class, 'testEmailFunctionality']);
+
 // Endpoint yang butuh autentikasi (token JWT)
 Route::middleware('auth:api')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
     Route::post('refresh', [AuthController::class, 'refresh']);
     Route::get('me', [AuthController::class, 'me']);
+    
+    // Dashboard endpoint
+    Route::get('dashboard', [DashboardController::class, 'getDashboard']);
+    
+    // Test history endpoint
+    Route::get('test-history', [TestDistributionController::class, 'getTestHistory'])
+        ->middleware('role:super_admin,admin');
+    
+    // Test distributions endpoint
+    Route::get('test-distributions', [TestDistributionController::class, 'getActiveDistributions'])
+        ->middleware('role:super_admin,admin');
+    
+    // Email notification routes
+    Route::post('send-test-completion-email', [App\Http\Controllers\TestEmailController::class, 'sendTestCompletionEmail']);
+    Route::post('send-bulk-test-completion-emails', [App\Http\Controllers\TestEmailController::class, 'sendBulkTestCompletionEmails']);
+    Route::post('test-email-functionality', [App\Http\Controllers\TestEmailController::class, 'testEmailFunctionality']);
 
     // Route untuk User Management (Hanya bisa diakses Super Admin)
     Route::middleware('role:super_admin')->group(function () {
@@ -65,8 +90,23 @@ Route::middleware('auth:api')->group(function () {
     // Hanya bisa diakses oleh super_admin dan admin
     Route::get('candidates', [CandidateController::class, 'index'])
         ->middleware('role:super_admin,admin');
+    
+    // Endpoint untuk mendapatkan kandidat yang tersedia untuk test distribution
+    Route::get('candidates/available', [CandidateController::class, 'getAvailableCandidates'])
+        ->middleware('role:super_admin,admin');
+    
+    // Endpoint untuk load existing candidates yang belum pernah test
+    Route::get('candidates/load-existing', [CandidateController::class, 'loadExistingCandidates'])
+        ->middleware('role:super_admin,admin');
+    Route::get('candidates/test-distribution-candidates', [CandidateController::class, 'getTestDistributionCandidates'])
+        ->middleware('role:super_admin,admin');
+    Route::post('candidates/add-to-test-distribution', [CandidateController::class, 'addToTestDistribution'])
+        ->middleware('role:super_admin,admin');
+    Route::post('candidates/remove-from-test-distribution', [CandidateController::class, 'removeFromTestDistribution'])
+        ->middleware('role:super_admin,admin');
 
-    Route::apiResource('candidates', CandidateController::class);
+    Route::apiResource('candidates', CandidateController::class)
+        ->middleware('role:super_admin,admin');
 
     Route::middleware('role:super_admin,admin')->group(function () {
         // Bank Soal
@@ -90,6 +130,7 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/test-package/{id}/duplicate', [TestController::class, 'duplicate']);
 
         Route::post('/candidate-tests/invite', [TestDistributionController::class, 'inviteCandidates']);
+        Route::delete('/test-distributions/{testId}', [TestDistributionController::class, 'deleteDistribution']);
 
         // Result Test
         Route::apiResource('teliti-results', TelitiResultController::class);

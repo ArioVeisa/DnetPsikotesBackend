@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('email')->unique(); // Email sebaiknya unik
             $table->string('position'); // Sesuai BRD "Posisi yang dilamar"
             $table->date('birth_date');
-            $table->enum('gender', ['male', 'famale']);
+            $table->enum('gender', ['male', 'female']);
             $table->string('department'); 
             $table->timestamps();
         });

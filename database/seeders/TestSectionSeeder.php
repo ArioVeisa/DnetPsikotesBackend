@@ -12,15 +12,15 @@ class TestSectionSeeder extends Seeder
     public function run(): void
     {
         // Disable foreign key checks temporarily
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // Clear existing records
         TestSection::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // Foreign key checks enabled
 
         $tests = Test::all();
-        
+
         foreach ($tests as $test) {
             $sections = [];
-            
+
             // Different sections based on position level
             if (in_array($test->target_position, ['Manager', 'Supervisor'])) {
                 // Leadership positions get all three test types
@@ -66,7 +66,7 @@ class TestSectionSeeder extends Seeder
                     ]
                 ];
             }
-            
+
             foreach ($sections as $section) {
                 TestSection::create($section);
             }

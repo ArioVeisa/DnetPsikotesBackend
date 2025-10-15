@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Services\TestCompletionEmailService;
 
 class CandidateTest extends Model
 {
@@ -74,6 +75,26 @@ class CandidateTest extends Model
             'completed_at' => now(),
             'score' => $score,
         ]);
+
+        // Send email notification after test completion
+        $this->sendCompletionEmailNotification();
+    }
+
+    /**
+     * Send email notification when test is completed
+     */
+    private function sendCompletionEmailNotification(): void
+    {
+        try {
+            $emailService = app(TestCompletionEmailService::class);
+            $emailService->sendCompletionNotification($this);
+        } catch (\Exception $e) {
+            // Log error but don't fail the test completion
+            \Log::error('Failed to send completion email notification', [
+                'candidate_test_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
