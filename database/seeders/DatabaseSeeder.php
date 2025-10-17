@@ -11,32 +11,38 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Panggil semua seeder dalam urutan yang benar
         $this->call([
-            // User dan Candidate seeder
+            // 1️⃣ User dan Candidate
             UserSeeder::class,
             CandidateSeeder::class,
-            
-            // Category seeders (harus dijalankan terlebih dahulu)
+
+            // 2️⃣ Category Seeders
             CaasCategorySeeder::class,
             DiscCategorySeeder::class,
             TelitiCategorySeeder::class,
-            
-            // Question seeders
+
+            // 3️⃣ Question Seeders
             CaasQuestionSeeder::class,
             DiscQuestionSeeder::class,
             TelitiQuestionSeeder::class,
-            
-            // Option seeders
+
+            // 4️⃣ Option Seeders
             CaasOptionSeeder::class,
-            DiscOptionSeeder::class,
             TelitiOptionSeeder::class,
-            
-            // Test dan TestSection seeders
+
+            // 5️⃣ Test dan TestSection
             TestSeeder::class,
             TestSectionSeeder::class,
-            
-            // TestQuestion seeder (harus dijalankan terakhir karena membutuhkan semua data sebelumnya)
+
+            // 6️⃣ CandidateTestSeeder HARUS sebelum Result
+            CandidateTestSeeder::class,
+
+            // 7️⃣ Result Seeders (bergantung pada candidate_tests)
+            CaasResultSeeder::class,
+            DiscResultSeeder::class,
+            TelitiResultSeeder::class,
+
+            // 8️⃣ TestQuestion terakhir (butuh semua data sebelumnya)
             TestQuestionSeeder::class,
         ]);
     }
