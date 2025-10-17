@@ -15,6 +15,7 @@ use App\Http\Controllers\ManajemenTes\TestQuestionController;
 use App\Http\Controllers\ManajemenTes\TestTemplateController;
 use App\Http\Controllers\Results\CaasResultController;
 use App\Http\Controllers\Results\DiscResultController;
+use App\Http\Controllers\Results\ResultController;
 use App\Http\Controllers\TestAccessController;
 use App\Http\Controllers\TestDistributionController;
 use App\Http\Controllers\UserController;
@@ -83,7 +84,7 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/disc-questions/import', [DiscController::class, 'import']);
 
         // Manajemen Tes
-       Route::delete('/manage-questions/{section_id}/{id}', [TestQuestionController::class, 'deleteBySection']);
+        Route::delete('/manage-questions/{section_id}/{id}', [TestQuestionController::class, 'deleteBySection']);
         Route::apiResource('test-package', TestController::class);
         Route::apiResource('manage-questions', TestQuestionController::class);
         Route::get('manage-questions/section/{id}', [TestQuestionController::class, 'showSection']);
@@ -93,6 +94,8 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/candidate-tests/invite', [TestDistributionController::class, 'inviteCandidates']);
 
         // Result Test
+        Route::apiResource('candidate-tests', ResultController::class);
+        Route::get('candidate-tests/{candidate_test_id}/download', [ResultController::class, 'download']);
         Route::apiResource('teliti-results', TelitiResultController::class);
         Route::apiResource('caas-results', CaasResultController::class);
         Route::apiResource('disc-results', DiscResultController::class);

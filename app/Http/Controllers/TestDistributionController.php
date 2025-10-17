@@ -143,7 +143,6 @@ class TestDistributionController extends Controller
 
         if ($candidateTest->status === CandidateTest::STATUS_NOT_STARTED) {
             $candidateTest->markAsStarted();
-            
             // Log activity: Candidate started test
             LogActivityService::addToLog("Candidate started test: {$candidateTest->test->name} (Candidate: {$candidateTest->candidate->name})", $request);
         }
