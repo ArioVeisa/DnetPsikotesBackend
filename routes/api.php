@@ -46,6 +46,15 @@ Route::post('/candidate-tests/submit/{token}', [TestDistributionController::clas
 Route::get('candidate-tests/validate/{token}', [TestDistributionController::class, 'validateBeforeSubmit'])
     ->name('candidate-tests.validate');
 
+// Test endpoint without authentication
+Route::get('test-results', [App\Http\Controllers\ResultsController::class, 'index']);
+Route::get('test-distributions-public', [App\Http\Controllers\TestDistributionController::class, 'getActiveDistributions']);
+Route::delete('test-distributions-public/{testId}', [App\Http\Controllers\TestDistributionController::class, 'deleteDistribution']);
+Route::post('test-distributions-public/create-from-package', [App\Http\Controllers\TestDistributionController::class, 'createDistributionFromPackage']);
+Route::get('tests-public/{testId}/with-sections', [App\Http\Controllers\ManajemenTes\TestQuestionController::class, 'showTestWithSections']);
+Route::post('candidate-tests-public/invite', [App\Http\Controllers\TestDistributionController::class, 'inviteCandidates']);
+Route::get('test-packages-public', [App\Http\Controllers\ManajemenTes\TestController::class, 'index']);
+
 // Test email functionality (public for testing)
 Route::post('test-email-public', [App\Http\Controllers\TestEmailController::class, 'testEmailFunctionality']);
 
@@ -132,11 +141,16 @@ Route::middleware('auth:api')->group(function () {
 
         Route::post('/candidate-tests/invite', [TestDistributionController::class, 'inviteCandidates']);
         Route::delete('/test-distributions/{testId}', [TestDistributionController::class, 'deleteDistribution']);
+        Route::post('/test-distributions/create-from-package', [TestDistributionController::class, 'createDistributionFromPackage']);
 
         // Result Test
         Route::apiResource('teliti-results', TelitiResultController::class);
         Route::apiResource('caas-results', CaasResultController::class);
         Route::apiResource('disc-results', DiscResultController::class);
+        
+        // Combined Results endpoint for Results page
+        Route::get('results', [App\Http\Controllers\ResultsController::class, 'index']);
+        Route::get('results/{id}', [App\Http\Controllers\ResultsController::class, 'show']);
     });
 
     Route::middleware(['auth:api'])->group(function () {

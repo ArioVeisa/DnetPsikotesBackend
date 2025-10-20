@@ -18,4 +18,14 @@ class CaasResult extends Model
         'total',
         'category',
     ];
+
+    public function candidateTest()
+    {
+        return $this->belongsTo(CandidateTest::class);
+    }
+
+    public function section()
+    {
+        return $this->belongsTo(TestSection::class);
+    }
 }

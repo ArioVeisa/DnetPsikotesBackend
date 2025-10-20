@@ -12,11 +12,14 @@ class TestController extends Controller
 
     public function index()
     {
-        $tests = Test::with('sections')->get();
+        // Only show original test packages (templates), not distribution instances
+        $tests = Test::with('sections')
+            ->whereNull('parent_test_id') // Only show original templates
+            ->get();
         return response()->json([
             'data' => $tests,
             'status' => 'success',
-            'message' => 'Tests retrieved successfully'
+            'message' => 'Test packages retrieved successfully'
         ]);
     }
     public function store(Request $request)

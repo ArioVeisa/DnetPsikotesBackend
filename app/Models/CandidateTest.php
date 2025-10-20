@@ -13,6 +13,7 @@ class CandidateTest extends Model
     protected $fillable = [
         'candidate_id',
         'test_id',
+        'test_distribution_id',
         'unique_token',
         'started_at',
         'completed_at',
@@ -43,6 +44,38 @@ class CandidateTest extends Model
     public function test()
     {
         return $this->belongsTo(Test::class);
+    }
+
+    /**
+     * Get the test distribution associated with this candidate test
+     */
+    public function testDistribution()
+    {
+        return $this->belongsTo(TestDistribution::class);
+    }
+
+    /**
+     * Get the DISC results for this candidate test
+     */
+    public function discResults()
+    {
+        return $this->hasMany(DiscResult::class);
+    }
+
+    /**
+     * Get the CAAS results for this candidate test
+     */
+    public function caasResults()
+    {
+        return $this->hasMany(CaasResult::class);
+    }
+
+    /**
+     * Get the Teliti results for this candidate test
+     */
+    public function telitiResults()
+    {
+        return $this->hasMany(telitiResult::class);
     }
 
     /**

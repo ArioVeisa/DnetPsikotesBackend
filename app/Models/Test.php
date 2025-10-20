@@ -14,7 +14,8 @@ class Test extends Model
         'target_position',
         'icon_path',
         'started_date',
-        'access_type'
+        'access_type',
+        'parent_test_id'
     ];
 
     public function caasQuestions()
@@ -51,5 +52,17 @@ class Test extends Model
     public function candidateTests()
     {
         return $this->hasMany(CandidateTest::class);
+    }
+
+    // Relationship to parent test package
+    public function parentTest()
+    {
+        return $this->belongsTo(Test::class, 'parent_test_id');
+    }
+
+    // Relationship to distribution instances
+    public function distributionInstances()
+    {
+        return $this->hasMany(Test::class, 'parent_test_id');
     }
 }
