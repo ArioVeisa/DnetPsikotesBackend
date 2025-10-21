@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Candidate;
 use App\Models\CandidateTest;
+use App\Models\TestDistributionCandidate;
 use App\Services\LogActivityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,227 +22,20 @@ class CandidateController extends Controller
     }
 
     /**
-     * Menampilkan kandidat yang belum pernah mengikuti test atau yang baru ditambahkan
-     */
-    public function getAvailableCandidates(Request $request)
-    {
-        $testId = $request->query('test_id');
-        $includeExisting = $request->query('include_existing', 'false');
-        
-        // Untuk test distribution baru, default tidak include existing candidates
-        // Hanya return empty array kecuali explicitly diminta
-        if ($includeExisting !== 'true') {
-            return response()->json([
-                'data' => [],
-                'message' => 'No existing candidates loaded. Use "Add Candidate" to add new candidates.'
-            ]);
-        }
-        
-        // Jika include_existing=true, baru tampilkan kandidat yang available
-        if ($testId) {
-            // Filter kandidat yang belum pernah test dengan test tersebut
-            $candidates = Candidate::whereDoesntHave('tests', function ($query) use ($testId) {
-                $query->where('test_id', $testId)
-                      ->where('status', '!=', CandidateTest::STATUS_COMPLETED);
-            })->get();
-        } else {
-            // Filter kandidat yang belum pernah test sama sekali
-            $candidates = Candidate::whereDoesntHave('tests', function ($query) {
-                $query->where('status', '!=', CandidateTest::STATUS_COMPLETED);
-            })->get();
-        }
-
-        return response()->json([
-            'data' => $candidates,
-            'message' => 'Available candidates retrieved successfully'
-        ]);
-    }
-
-    /**
-     * Load existing candidates yang belum pernah test dengan test package tertentu
-     */
-    public function loadExistingCandidates(Request $request)
-    {
-        $testId = $request->query('test_id');
-        
-        if ($testId) {
-            // Filter kandidat yang belum pernah test dengan test tersebut
-            $candidates = Candidate::whereDoesntHave('tests', function ($query) use ($testId) {
-                $query->where('test_id', $testId)
-                      ->where('status', '!=', CandidateTest::STATUS_COMPLETED);
-            })->get();
-        } else {
-            // Filter kandidat yang belum pernah test sama sekali
-            $candidates = Candidate::whereDoesntHave('tests', function ($query) {
-                $query->where('status', '!=', CandidateTest::STATUS_COMPLETED);
-            })->get();
-        }
-
-        return response()->json([
-            'data' => $candidates,
-            'message' => 'Existing available candidates loaded successfully'
-        ]);
-    }
-
-    /**
-     * Get candidates that are already added to a specific test distribution
-     */
-    public function getTestDistributionCandidates(Request $request)
-    {
-        $testId = $request->query('test_id');
-        
-        if (!$testId) {
-            return response()->json([
-                'data' => [],
-                'message' => 'Test ID is required'
-            ], 400);
-        }
-
-        // Get candidates from test_distribution_candidates table
-        $candidates = \App\Models\TestDistributionCandidate::where('test_id', $testId)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'data' => $candidates,
-            'message' => 'Test distribution candidates loaded successfully'
-        ]);
-    }
-
-    /**
-     * Remove candidate from test distribution
-     */
-    public function removeFromTestDistribution(Request $request)
-    {
-        $request->validate([
-            'id' => 'required|exists:test_distribution_candidates,id',
-        ]);
-
-        try {
-            $testDistributionCandidate = \App\Models\TestDistributionCandidate::findOrFail($request->id);
-            $candidateName = $testDistributionCandidate->name;
-            
-            // Delete from test_distribution_candidates table
-            $testDistributionCandidate->delete();
-
-            // Log activity
-            LogActivityService::addToLog("Removed candidate {$candidateName} from test distribution", $request);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Candidate removed from test distribution successfully'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error removing candidate from test distribution: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Add new candidate to test distribution (save to both tables)
-     */
-    public function addToTestDistribution(Request $request)
-    {
-        $request->validate([
-            'test_id' => 'required|exists:tests,id',
-            'name' => 'required|string|max:255',
-            'nik' => 'required|string|max:255|unique:candidates,nik|unique:test_distribution_candidates,nik',
-            'phone_number' => 'required|string|max:20',
-            'email' => 'required|email|max:255',
-            'position' => 'required|string|max:255',
-            'birth_date' => 'required|date',
-            'gender' => 'required|in:male,female',
-            'department' => 'required|string|max:255',
-        ]);
-
-        try {
-            // Save to global candidates table
-            $globalCandidate = Candidate::create([
-                'name' => $request->name,
-                'nik' => $request->nik,
-                'phone_number' => $request->phone_number,
-                'email' => $request->email,
-                'position' => $request->position,
-                'birth_date' => $request->birth_date,
-                'gender' => $request->gender,
-                'department' => $request->department,
-            ]);
-
-            // Save to test distribution candidates table
-            $testCandidate = new \App\Models\TestDistributionCandidate();
-            $testCandidate->test_id = $request->test_id;
-            $testCandidate->name = $request->name;
-            $testCandidate->nik = $request->nik;
-            $testCandidate->phone_number = $request->phone_number;
-            $testCandidate->email = $request->email;
-            $testCandidate->position = $request->position;
-            $testCandidate->birth_date = $request->birth_date;
-            $testCandidate->gender = $request->gender;
-            $testCandidate->department = $request->department;
-            $testCandidate->status = 'pending';
-            $testCandidate->save();
-
-            return response()->json([
-                'success' => true,
-                'data' => $testCandidate,
-                'global_candidate' => $globalCandidate,
-                'message' => 'Candidate added to test distribution successfully'
-            ], 201);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error adding candidate: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
      * Menyimpan kandidat baru dengan validasi duplikat NIK (FR-008)
      */
    public function store(Request $request)
     {
-        try {
-            // Validasi dengan pesan error yang spesifik
-            $validated = $request->validate([
-                'nik' => 'required|unique:candidates|max:16',
-                'name' => 'required|max:100',
-                'email' => 'required|email|unique:candidates',
-                'phone_number' => 'required|max:20',
-                'position' => 'required|max:100',
-                'birth_date' => 'required|date',
-                'gender' => 'required|in:male,female',
-                'department' => 'required|max:100'
-            ], [
-                'nik.required' => 'NIK harus diisi',
-                'nik.unique' => 'NIK sudah digunakan',
-                'nik.max' => 'NIK maksimal 16 karakter',
-                'name.required' => 'Nama lengkap harus diisi',
-                'name.max' => 'Nama lengkap maksimal 100 karakter',
-                'email.required' => 'Email harus diisi',
-                'email.email' => 'Format email tidak valid',
-                'email.unique' => 'Email sudah digunakan',
-                'phone_number.required' => 'Nomor telepon harus diisi',
-                'phone_number.max' => 'Nomor telepon maksimal 20 karakter',
-                'position.required' => 'Posisi harus diisi',
-                'position.max' => 'Posisi maksimal 100 karakter',
-                'birth_date.required' => 'Tanggal lahir harus diisi',
-                'birth_date.date' => 'Format tanggal lahir tidak valid',
-                'gender.required' => 'Jenis kelamin harus diisi',
-                'gender.in' => 'Jenis kelamin harus Male atau Female',
-                'department.required' => 'Departemen harus diisi',
-                'department.max' => 'Departemen maksimal 100 karakter',
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            // Return validation errors in the format expected by frontend
-            return response()->json([
-                'success' => false,
-                'message' => 'Data tidak valid',
-                'errors' => $e->errors()
-            ], 422);
-        }
+        $validated = $request->validate([
+            'nik' => 'required|unique:candidates|max:16',
+            'name' => 'required|max:100',
+            'email' => 'required|email|unique:candidates',
+            'phone_number' => 'required|max:20',
+            'position' => 'required|max:100',
+            'birth_date' => 'required|date',
+            'gender' => 'required|in:male,female',
+            'department' => 'required|max:100'
+        ]);
 
         // Validasi duplikat NIK dalam 1 tahun terakhir (FR-008)
          $duplicateCheck = Candidate::where('nik', $request->nik)
@@ -251,38 +45,22 @@ class CandidateController extends Controller
         if ($duplicateCheck) {
             return response()->json([
                 'success' => false,
-                'message' => 'NIK sudah digunakan dalam 1 tahun terakhir',
-                'field' => 'nik',
+                'warning' => 'Kandidat dengan NIK ini sudah mengikuti tes dalam 1 tahun terakhir!',
                 'previous_test' => $duplicateCheck->created_at,
                 'can_continue' => false
             ], 422);
         }
 
-        try {
-            // Mapping gender untuk memastikan kompatibilitas dengan database
-            $validated['gender'] = $validated['gender'] === 'female' ? 'female' : 'male';
-            
-            $candidate = Candidate::create($validated);
+        $candidate = Candidate::create($validated);
 
-            // Log activity: HRD adding new candidate
-            LogActivityService::addToLog("Added new candidate: {$candidate->name} ({$candidate->email})", $request);
+        // Log activity: HRD adding new candidate
+        LogActivityService::addToLog("Added new candidate: {$candidate->name} ({$candidate->email})", $request);
 
-            return response()->json([
-                'success' => true,
-                'data' => $candidate,
-                'message' => 'Kandidat berhasil ditambahkan'
-            ], 201);
-        } catch (\Exception $e) {
-            // Log error untuk debugging
-            \Log::error('Candidate creation error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan saat menyimpan data. Silakan periksa data yang diisi.',
-                'field' => 'general',
-                'debug' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data' => $candidate,
+            'message' => 'Kandidat berhasil ditambahkan'
+        ], 201);
     }
 
     /**
@@ -416,5 +194,130 @@ class CandidateController extends Controller
             'is_duplicate' => false,
             'previous_test' => null
         ];
+    }
+
+    /**
+     * Menambahkan kandidat ke test distribution
+     */
+    public function addToTestDistribution(Request $request)
+    {
+        $validated = $request->validate([
+            'test_distribution_id' => 'required|exists:test_distributions,id',
+            'nik' => 'required|max:16',
+            'name' => 'required|max:100',
+            'email' => 'required|email',
+            'phone_number' => 'required|max:20',
+            'position' => 'required|max:100',
+            'birth_date' => 'required|date',
+            'gender' => 'required|in:male,female',
+            'department' => 'required|max:100'
+        ]);
+
+        // Validasi duplikat email/NIK dalam distribution yang sama
+        $existingEmail = TestDistributionCandidate::where('test_distribution_id', $validated['test_distribution_id'])
+            ->where('email', $validated['email'])
+            ->first();
+        if ($existingEmail) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email sudah digunakan untuk sesi ini',
+                'errors' => [ 'email' => ['Email sudah digunakan untuk sesi ini'] ]
+            ], 422);
+        }
+        $existingNik = TestDistributionCandidate::where('test_distribution_id', $validated['test_distribution_id'])
+            ->where('nik', $validated['nik'])
+            ->first();
+        if ($existingNik) {
+            return response()->json([
+                'success' => false,
+                'message' => 'NIK sudah digunakan untuk sesi ini',
+                'errors' => [ 'nik' => ['NIK sudah digunakan untuk sesi ini'] ]
+            ], 422);
+        }
+
+        // Buat kandidat khusus distribution
+        $testCandidate = TestDistributionCandidate::create([
+            'test_distribution_id' => $validated['test_distribution_id'],
+            'nik' => $validated['nik'],
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone_number' => $validated['phone_number'],
+            'position' => $validated['position'],
+            'birth_date' => $validated['birth_date'],
+            'gender' => $validated['gender'],
+            'department' => $validated['department'],
+            'status' => TestDistributionCandidate::STATUS_PENDING,
+        ]);
+
+        // Log activity
+        $distribution = \App\Models\TestDistribution::findOrFail($validated['test_distribution_id']);
+        LogActivityService::addToLog("Added candidate {$testCandidate->name} to distribution: {$distribution->name}", $request);
+
+        return response()->json([
+            'success' => true,
+            'data' => $testCandidate,
+            'message' => 'Kandidat berhasil ditambahkan ke test distribution'
+        ], 201);
+    }
+
+    /**
+     * Mengambil kandidat untuk test distribution
+     */
+    public function getTestDistributionCandidates(Request $request)
+    {
+        $distributionId = $request->query('test_distribution_id');
+        
+        if (!$distributionId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Test distribution ID is required'
+            ], 400);
+        }
+
+        try {
+            $testCandidates = TestDistributionCandidate::where('test_distribution_id', $distributionId)
+                                         ->with('testDistribution')
+                                         ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $testCandidates,
+                'message' => 'Test distribution candidates retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving candidates: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Menghapus kandidat dari test distribution
+     */
+    public function removeFromTestDistribution(Request $request)
+    {
+        $validated = $request->validate([
+            'id' => 'required|integer'
+        ]);
+
+        $testCandidateId = $validated['id'];
+        
+        // Hapus test candidate
+        $testCandidate = TestDistributionCandidate::findOrFail($testCandidateId);
+        $candidateName = $testCandidate->name;
+        
+        // Hapus related answers jika ada
+        $testCandidate->candidateAnswers()->delete();
+        
+        // Hapus test candidate
+        $testCandidate->delete();
+
+        LogActivityService::addToLog("Removed candidate {$candidateName} from test distribution", $request);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kandidat berhasil dihapus dari test distribution'
+        ]);
     }
 }

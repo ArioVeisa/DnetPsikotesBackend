@@ -77,7 +77,7 @@ class TestDistributionController extends Controller
     private function mapStatus($internalStatus)
     {
         switch ($internalStatus) {
-            case TestDistributionCandidate::STATUS_NOT_STARTED:
+            case TestDistributionCandidate::STATUS_PENDING:
                 return 'Scheduled';
             case TestDistributionCandidate::STATUS_IN_PROGRESS:
                 return 'Ongoing';
@@ -148,10 +148,9 @@ class TestDistributionController extends Controller
             ]);
             \Log::info('Status updated successfully');
 
-            // Create Candidate model from TestDistributionCandidate
+            // Create Candidate model from TestDistributionCandidate dan simpan ke DB
             \Log::info('Creating Candidate model...');
-            $candidate = new Candidate([
-                'id' => $testCandidate->id,
+            $candidate = Candidate::create([
                 'name' => $testCandidate->name,
                 'email' => $testCandidate->email,
                 'position' => $testCandidate->position,
@@ -161,19 +160,19 @@ class TestDistributionController extends Controller
                 'gender' => $testCandidate->gender,
                 'department' => $testCandidate->department,
             ]);
-            \Log::info('Candidate model created');
+            \Log::info('Candidate model created & saved', ['id' => $candidate->id]);
 
             // Create CandidateTest model
             \Log::info('Creating CandidateTest model...');
-            $candidateTest = new CandidateTest([
-                'id' => $testCandidate->id,
-                'candidate_id' => $testCandidate->id,
+            // Simpan CandidateTest ke database agar terhitung di daftar distribusi
+            $candidateTest = CandidateTest::create([
+                'candidate_id' => $candidate->id, // Gunakan ID dari Candidate yang baru dibuat
                 'test_id' => $test->id,
                 'test_distribution_id' => $testDistribution->id,
-                'unique_token' => 'test-token-' . $testCandidate->id, // Generate unique token
+                'unique_token' => (string) Str::uuid(),
                 'status' => CandidateTest::STATUS_NOT_STARTED,
             ]);
-            \Log::info('CandidateTest model created');
+            \Log::info('CandidateTest model created & saved', ['id' => $candidateTest->id]);
 
             // Kirim email invitation
             \Log::info('Sending email invitation...');
@@ -694,11 +693,12 @@ class TestDistributionController extends Controller
     {
         try {
             // Get all test distributions from the new table
-            $distributions = \App\Models\TestDistribution::with(['candidateTests.candidate'])
+            $distributions = \App\Models\TestDistribution::with(['candidateTests.candidate', 'candidates'])
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($distribution) {
                     $candidateTests = $distribution->candidateTests;
+                    $distributionCandidates = $distribution->candidates;
                     $completedCount = $candidateTests->where('status', CandidateTest::STATUS_COMPLETED)->count();
                     $inProgressCount = $candidateTests->where('status', CandidateTest::STATUS_IN_PROGRESS)->count();
                     $notStartedCount = $candidateTests->where('status', CandidateTest::STATUS_NOT_STARTED)->count();
@@ -715,8 +715,9 @@ class TestDistributionController extends Controller
                         'id' => $distribution->id,
                         'name' => $distribution->name,
                         'target_position' => $distribution->target_position,
-                        'started_date' => $distribution->started_date,
-                        'candidates_count' => $candidateTests->count(),
+                        // Format tanggal agar tidak jadi ISO/UTC di frontend
+                        'started_date' => $distribution->started_date ? $distribution->started_date->format('Y-m-d') : null,
+                        'candidates_count' => $distributionCandidates->count(),
                         'completed_count' => $completedCount,
                         'in_progress_count' => $inProgressCount,
                         'not_started_count' => $notStartedCount,
@@ -739,6 +740,30 @@ class TestDistributionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve test distributions: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all candidate tests for results page
+     */
+    public function getAllCandidateTests(Request $request)
+    {
+        try {
+            $candidateTests = \App\Models\CandidateTest::with(['candidate', 'test'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Candidate tests retrieved successfully',
+                'data' => $candidateTests
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve candidate tests: ' . $e->getMessage()
             ], 500);
         }
     }
