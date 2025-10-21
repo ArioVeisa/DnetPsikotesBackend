@@ -22,14 +22,14 @@ class Test extends Model
     {
         return $this->belongsToMany(CaasQuestion::class, 'test_questions', 'test_id', 'question_id')
             ->withPivot('question_type')
-            ->wherePivot('question_type', 'caas');
+            ->wherePivot('question_type', 'CAAS');
     }
 
     public function discQuestions()
     {
         return $this->belongsToMany(DiscQuestion::class, 'test_questions', 'test_id', 'question_id')
             ->withPivot('question_type')
-            ->wherePivot('question_type', 'disc');
+            ->wherePivot('question_type', 'DISC');
     }
 
     public function telitiQuestions()

@@ -244,11 +244,15 @@ class TestDistributionController extends Controller
     public function startTest(Request $request, $token)
     {
         $candidateTest = CandidateTest::where('unique_token', $token)
-            ->with(['test', 'candidate'])
+            ->with(['test.sections', 'candidate'])
             ->firstOrFail();
 
         if ($candidateTest->status === CandidateTest::STATUS_COMPLETED) {
-            abort(403, 'This test has already been completed.');
+            return response()->json([
+                'status' => 'completed',
+                'completed_at' => $candidateTest->completed_at,
+                'message' => 'This test has already been completed.'
+            ], 403);
         }
 
         if ($candidateTest->isExpired()) {
@@ -261,15 +265,25 @@ class TestDistributionController extends Controller
             LogActivityService::addToLog("Candidate started test: {$candidateTest->test->name} (Candidate: {$candidateTest->candidate->name})", $request);
         }
 
-        $questions = $candidateTest->test
-            ->testQuestions()
-            ->inRandomOrder()
-            ->get();
+        // Get sections with their questions
+        $sections = $candidateTest->test->sections()->with(['testQuestions' => function($query) {
+            $query->inRandomOrder();
+        }])->orderBy('sequence')->get();
+
+        // If no sections, fallback to direct questions
+        $questions = null;
+        if ($sections->isEmpty()) {
+            $questions = $candidateTest->test
+                ->testQuestions()
+                ->inRandomOrder()
+                ->get();
+        }
 
         return response()->json([
             'test' => $candidateTest->test,
             'candidate' => $candidateTest->candidate,
             'started_at' => $candidateTest->started_at,
+            'sections' => $sections->isEmpty() ? null : $sections,
             'questions' => $questions,
         ]);
     }
