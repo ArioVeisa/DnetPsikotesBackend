@@ -24,6 +24,8 @@ class TestQuestionController extends Controller
 
     public function store(Request $request)
     {
+        \Log::info("TestQuestionController::store called with data: " . json_encode($request->all()));
+        
         $validated = $request->validate([
             'questions' => 'required|array|min:1',
             'questions.*.test_id' => 'required|exists:tests,id',
@@ -33,6 +35,8 @@ class TestQuestionController extends Controller
             'questions.*.sequence' => 'nullable|integer'
         ]);
 
+        \Log::info("Validated data: " . json_encode($validated));
+
         $savedQuestions = [];
         foreach ($validated['questions'] as $questionData) {
             $exists = match ($questionData['question_type']) {
@@ -41,7 +45,10 @@ class TestQuestionController extends Controller
                 'teliti' => TelitiQuestion::where('id', $questionData['question_id'])->exists(),
             };
 
+            \Log::info("Question {$questionData['question_id']} of type {$questionData['question_type']} exists: " . ($exists ? 'yes' : 'no'));
+
             if (!$exists) {
+                \Log::error("Question validation failed for question_id: {$questionData['question_id']}, type: {$questionData['question_type']}");
                 return response()->json([
                     'message' => "Invalid question_id for {$questionData['question_type']}.",
                     'question' => $questionData['question_id'],
@@ -49,8 +56,12 @@ class TestQuestionController extends Controller
             }
 
             // Keep question_type as is (uppercase for DISC and CAAS, lowercase for teliti)
-            $savedQuestions[] = TestQuestion::create($questionData);
+            $saved = TestQuestion::create($questionData);
+            \Log::info("Created TestQuestion with ID: {$saved->id}");
+            $savedQuestions[] = $saved;
         }
+
+        \Log::info("Successfully saved " . count($savedQuestions) . " questions");
 
         return response()->json([
             'data' => $savedQuestions,
@@ -71,7 +82,7 @@ class TestQuestionController extends Controller
             'sequence' => 'nullable|integer'
         ]);
 
-        $validated['question_type'] = strtolower($validated['question_type']);
+        // Keep question_type as is (uppercase for DISC and CAAS, lowercase for teliti)
         $exists = match ($validated['question_type']) {
             'CAAS' => CaasQuestion::where('id', $validated['question_id'])->exists(),
             'DISC' => DiscQuestion::where('id', $validated['question_id'])->exists(),
@@ -141,9 +152,16 @@ class TestQuestionController extends Controller
 
     public function showTestWithSections($testId)
     {
-        $sections = TestSection::with('testQuestions')
-            ->where('test_id', $testId)
-            ->get();
+        \Log::info("showTestWithSections called for testId: " . $testId);
+        
+        $sections = TestSection::with(['testQuestions' => function($query) {
+            $query->orderBy('id');
+        }])->where('test_id', $testId)->get();
+
+        \Log::info("Found sections: " . $sections->count());
+        foreach ($sections as $section) {
+            \Log::info("Section {$section->id} has {$section->testQuestions->count()} questions");
+        }
 
         $data = [
             'test_id' => $testId,
@@ -164,6 +182,8 @@ class TestQuestionController extends Controller
                 ];
             })
         ];
+
+        \Log::info("Final response data: " . json_encode($data));
 
         return response()->json([
             'data' => $data,

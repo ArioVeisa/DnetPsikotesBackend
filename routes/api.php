@@ -52,6 +52,169 @@ Route::get('test-distributions-public', [App\Http\Controllers\TestDistributionCo
 Route::delete('test-distributions-public/{testId}', [App\Http\Controllers\TestDistributionController::class, 'deleteDistribution']);
 Route::post('test-distributions-public/create-from-package', [App\Http\Controllers\TestDistributionController::class, 'createDistributionFromPackage']);
 Route::get('tests-public/{testId}/with-sections', [App\Http\Controllers\ManajemenTes\TestQuestionController::class, 'showTestWithSections']);
+Route::get('debug/test-questions/{testId}', function($testId) {
+    $sections = \App\Models\TestSection::with('testQuestions')->where('test_id', $testId)->get();
+    return response()->json([
+        'test_id' => $testId,
+        'sections_count' => $sections->count(),
+        'sections' => $sections->map(function($section) {
+            return [
+                'section_id' => $section->id,
+                'section_type' => $section->section_type,
+                'questions_count' => $section->testQuestions->count(),
+                'questions' => $section->testQuestions->map(function($q) {
+                    return [
+                        'id' => $q->id,
+                        'question_id' => $q->question_id,
+                        'question_type' => $q->question_type,
+                        'has_detail' => $q->question_detail !== null
+                    ];
+                })
+            ];
+        })
+    ]);
+});
+
+Route::get('debug/all-tests', function() {
+    $tests = \App\Models\Test::with('sections.testQuestions')->get();
+    return response()->json([
+        'tests_count' => $tests->count(),
+        'tests' => $tests->map(function($test) {
+            return [
+                'id' => $test->id,
+                'name' => $test->name,
+                'sections_count' => $test->sections->count(),
+                'total_questions' => $test->sections->sum(function($section) {
+                    return $section->testQuestions->count();
+                }),
+                'sections' => $test->sections->map(function($section) {
+                    return [
+                        'section_id' => $section->id,
+                        'section_type' => $section->section_type,
+                        'questions_count' => $section->testQuestions->count()
+                    ];
+                })
+            ];
+        })
+    ]);
+});
+
+Route::post('debug/add-question', function(\Illuminate\Http\Request $request) {
+    try {
+        \Log::info("Debug add-question called with: " . json_encode($request->all()));
+        
+        $data = $request->validate([
+            'test_id' => 'required|integer',
+            'section_id' => 'required|integer', 
+            'question_id' => 'required|integer',
+            'question_type' => 'required|string'
+        ]);
+        
+        \Log::info("Validated data: " . json_encode($data));
+        
+        // Check if question exists in respective table
+        $exists = match ($data['question_type']) {
+            'CAAS' => \App\Models\CaasQuestion::where('id', $data['question_id'])->exists(),
+            'DISC' => \App\Models\DiscQuestion::where('id', $data['question_id'])->exists(),
+            'teliti' => \App\Models\TelitiQuestion::where('id', $data['question_id'])->exists(),
+            default => false
+        };
+        
+        if (!$exists) {
+            return response()->json(['error' => 'Question not found in ' . $data['question_type'] . ' table'], 404);
+        }
+        
+        $testQuestion = \App\Models\TestQuestion::create($data);
+        \Log::info("Created TestQuestion: " . json_encode($testQuestion->toArray()));
+        
+        return response()->json(['success' => true, 'data' => $testQuestion]);
+        
+    } catch (\Exception $e) {
+        \Log::error("Debug add-question error: " . $e->getMessage());
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
+Route::post('debug/add-questions-bulk', function(\Illuminate\Http\Request $request) {
+    try {
+        \Log::info("Debug add-questions-bulk called with: " . json_encode($request->all()));
+        
+        $validated = $request->validate([
+            'questions' => 'required|array|min:1',
+            'questions.*.test_id' => 'required|integer',
+            'questions.*.section_id' => 'required|integer', 
+            'questions.*.question_id' => 'required|integer',
+            'questions.*.question_type' => 'required|string'
+        ]);
+        
+        $savedQuestions = [];
+        foreach ($validated['questions'] as $questionData) {
+            $exists = match ($questionData['question_type']) {
+                'CAAS' => \App\Models\CaasQuestion::where('id', $questionData['question_id'])->exists(),
+                'DISC' => \App\Models\DiscQuestion::where('id', $questionData['question_id'])->exists(),
+                'teliti' => \App\Models\TelitiQuestion::where('id', $questionData['question_id'])->exists(),
+                default => false
+            };
+            
+            if (!$exists) {
+                return response()->json(['error' => 'Question not found in ' . $questionData['question_type'] . ' table'], 404);
+            }
+            
+            $testQuestion = \App\Models\TestQuestion::create($questionData);
+            \Log::info("Created TestQuestion: " . json_encode($testQuestion->toArray()));
+            $savedQuestions[] = $testQuestion;
+        }
+        
+        return response()->json(['success' => true, 'data' => $savedQuestions]);
+        
+    } catch (\Exception $e) {
+        \Log::error("Debug add-questions-bulk error: " . $e->getMessage());
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
+// Endpoint debug untuk frontend tanpa auth
+Route::post('debug/manage-questions', function(\Illuminate\Http\Request $request) {
+    try {
+        \Log::info("Debug manage-questions called with: " . json_encode($request->all()));
+        
+        $validated = $request->validate([
+            'questions' => 'required|array|min:1',
+            'questions.*.test_id' => 'required|integer',
+            'questions.*.section_id' => 'required|integer', 
+            'questions.*.question_id' => 'required|integer',
+            'questions.*.question_type' => 'required|string'
+        ]);
+        
+        $savedQuestions = [];
+        foreach ($validated['questions'] as $questionData) {
+            $exists = match ($questionData['question_type']) {
+                'CAAS' => \App\Models\CaasQuestion::where('id', $questionData['question_id'])->exists(),
+                'DISC' => \App\Models\DiscQuestion::where('id', $questionData['question_id'])->exists(),
+                'teliti' => \App\Models\TelitiQuestion::where('id', $questionData['question_id'])->exists(),
+                default => false
+            };
+            
+            if (!$exists) {
+                return response()->json(['error' => 'Question not found in ' . $questionData['question_type'] . ' table'], 404);
+            }
+            
+            $testQuestion = \App\Models\TestQuestion::create($questionData);
+            \Log::info("Created TestQuestion: " . json_encode($testQuestion->toArray()));
+            $savedQuestions[] = $testQuestion;
+        }
+        
+        return response()->json([
+            'data' => $savedQuestions,
+            'status' => 'success',
+            'message' => 'Questions added to test successfully'
+        ], 201);
+        
+    } catch (\Exception $e) {
+        \Log::error("Debug manage-questions error: " . $e->getMessage());
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
 Route::post('candidate-tests-public/invite', [App\Http\Controllers\TestDistributionController::class, 'inviteCandidates']);
 Route::get('test-packages-public', [App\Http\Controllers\ManajemenTes\TestController::class, 'index']);
 

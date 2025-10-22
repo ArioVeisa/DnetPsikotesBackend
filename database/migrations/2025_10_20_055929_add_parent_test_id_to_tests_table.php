@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tests', function (Blueprint $table) {
-            //
+            $table->bigInteger('parent_test_id')->nullable()->after('access_type');
+            $table->foreign('parent_test_id')->references('id')->on('tests')->onDelete('set null');
         });
     }
 
@@ -22,7 +23,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('tests', function (Blueprint $table) {
-            //
+            $table->dropForeign(['parent_test_id']);
+            $table->dropColumn('parent_test_id');
         });
     }
 };

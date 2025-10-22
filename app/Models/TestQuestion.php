@@ -22,9 +22,12 @@ class TestQuestion extends Model
 
     public function getQuestionDetailAttribute()
     {
-        $question = match (strtolower($this->question_type)) {
-            'caas' => CaasQuestion::with('options')->find($this->question_id),
+        $question = match ($this->question_type) {
+            'CAAS' => CaasQuestion::with('options')->find($this->question_id),
+            'DISC' => DiscQuestion::with('options')->find($this->question_id),
             'teliti' => TelitiQuestion::with('options')->find($this->question_id),
+            // Fallback untuk case lama (jika ada data lama)
+            'caas' => CaasQuestion::with('options')->find($this->question_id),
             'disc' => DiscQuestion::with('options')->find($this->question_id),
             default => null
         };

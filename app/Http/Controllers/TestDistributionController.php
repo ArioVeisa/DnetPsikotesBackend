@@ -270,13 +270,41 @@ class TestDistributionController extends Controller
             $query->inRandomOrder();
         }])->orderBy('sequence')->get();
 
+        \Log::info("startTest: Found {$sections->count()} sections for test {$candidateTest->test->id}");
+
+        // Transform sections to include question details
+        $sections->transform(function ($section) {
+            \Log::info("startTest: Section {$section->id} has {$section->testQuestions->count()} questions");
+            
+            $section->test_questions = $section->testQuestions->map(function ($testQuestion) {
+                return [
+                    'id' => $testQuestion->id,
+                    'question_id' => $testQuestion->question_id,
+                    'question_type' => $testQuestion->question_type,
+                    'question_detail' => $testQuestion->question_detail
+                ];
+            });
+            // Also keep 'questions' for backward compatibility
+            $section->questions = $section->test_questions;
+            unset($section->testQuestions); // Remove the original relation
+            return $section;
+        });
+
         // If no sections, fallback to direct questions
         $questions = null;
         if ($sections->isEmpty()) {
             $questions = $candidateTest->test
                 ->testQuestions()
                 ->inRandomOrder()
-                ->get();
+                ->get()
+                ->map(function ($testQuestion) {
+                    return [
+                        'id' => $testQuestion->id,
+                        'question_id' => $testQuestion->question_id,
+                        'question_type' => $testQuestion->question_type,
+                        'question_detail' => $testQuestion->question_detail
+                    ];
+                });
         }
 
         return response()->json([

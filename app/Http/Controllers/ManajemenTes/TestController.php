@@ -76,10 +76,29 @@ class TestController extends Controller
         ]);
 
         if ($request->has('sections')) {
-            $test->sections()->delete();
-            foreach ($validated['sections'] as $section) {
-                $test->sections()->create($section);
+            // Update existing sections instead of deleting and recreating
+            // to preserve test_questions relationships
+            $existingSections = $test->sections()->get()->keyBy('section_type');
+            
+            foreach ($validated['sections'] as $sectionData) {
+                $existingSection = $existingSections->get($sectionData['section_type']);
+                
+                if ($existingSection) {
+                    // Update existing section - preserve ID and question_count
+                    $existingSection->update([
+                        'duration_minutes' => $sectionData['duration_minutes'],
+                        'question_count' => $sectionData['question_count'] ?? $existingSection->question_count,
+                        'sequence' => $sectionData['sequence'],
+                    ]);
+                } else {
+                    // Create new section if it doesn't exist
+                    $test->sections()->create($sectionData);
+                }
             }
+            
+            // Remove sections that are no longer in the request
+            $requestedTypes = collect($validated['sections'])->pluck('section_type');
+            $test->sections()->whereNotIn('section_type', $requestedTypes)->delete();
         }
         // Log activity: HRD updating test package
         LogActivityService::addToLog("Updated test package: {$test->name} (Target: {$test->target_position})", $request);
