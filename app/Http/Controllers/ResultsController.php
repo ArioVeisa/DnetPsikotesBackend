@@ -46,28 +46,35 @@ class ResultsController extends Controller
                         'disc' => $candidateTest->discResults->map(function ($result) {
                             return [
                                 'id' => $result->id,
-                                'personality_type' => $result->personality_type,
-                                'd_score' => $result->d_score,
-                                'i_score' => $result->i_score,
-                                's_score' => $result->s_score,
-                                'c_score' => $result->c_score,
+                                'dominant_type' => $result->dominant_type,
+                                'most_d' => $result->most_d,
+                                'most_i' => $result->most_i,
+                                'most_s' => $result->most_s,
+                                'most_c' => $result->most_c,
+                                'least_d' => $result->least_d,
+                                'least_i' => $result->least_i,
+                                'least_s' => $result->least_s,
+                                'least_c' => $result->least_c,
                                 'interpretation' => $result->interpretation
                             ];
                         }),
                         'caas' => $candidateTest->caasResults->map(function ($result) {
                             return [
                                 'id' => $result->id,
-                                'total_score' => $result->total_score,
-                                'interpretation' => $result->interpretation
+                                'total' => $result->total,
+                                'concern' => $result->concern,
+                                'control' => $result->control,
+                                'curiosity' => $result->curiosity,
+                                'confidence' => $result->confidence,
+                                'category' => $result->category
                             ];
                         }),
                         'teliti' => $candidateTest->telitiResults->map(function ($result) {
                             return [
                                 'id' => $result->id,
                                 'score' => $result->score,
-                                'correct_answers' => $result->correct_answers,
                                 'total_questions' => $result->total_questions,
-                                'interpretation' => $result->interpretation
+                                'category' => $result->category
                             ];
                         })
                     ]

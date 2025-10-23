@@ -1,182 +1,148 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notifikasi Tes Selesai</title>
+    <title>Test Completion Notification</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
             max-width: 600px;
             margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
+            padding: 20px;
         }
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: #2563eb;
             color: white;
-            padding: 30px;
+            padding: 20px;
             text-align: center;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
+            border-radius: 8px 8px 0 0;
         }
         .content {
+            background-color: #f8fafc;
             padding: 30px;
+            border-radius: 0 0 8px 8px;
         }
-        .notification-box {
-            background-color: #f8f9fa;
-            border-left: 4px solid #28a745;
+        .info-box {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
             padding: 20px;
             margin: 20px 0;
-            border-radius: 4px;
-        }
-        .candidate-info {
-            background-color: #e3f2fd;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
         }
         .info-row {
             display: flex;
             justify-content: space-between;
-            margin: 8px 0;
-            padding: 5px 0;
-            border-bottom: 1px solid #e0e0e0;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
         }
         .info-row:last-child {
             border-bottom: none;
         }
-        .info-label {
-            font-weight: 600;
-            color: #555;
+        .label {
+            font-weight: bold;
+            color: #475569;
         }
-        .info-value {
-            color: #333;
-        }
-        .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 25px;
-            font-weight: 600;
-            margin: 20px 0;
-            transition: transform 0.2s ease;
-        }
-        .cta-button:hover {
-            transform: translateY(-2px);
-        }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            color: #666;
-            font-size: 14px;
+        .value {
+            color: #1e293b;
         }
         .status-badge {
-            display: inline-block;
-            background-color: #28a745;
+            background-color: #10b981;
             color: white;
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 14px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎉 Tes Psikotes Selesai!</h1>
-            <p>Notifikasi Otomatis Sistem DWP</p>
-        </div>
-        
-        <div class="content">
-            <div class="notification-box">
-                <h2 style="margin-top: 0; color: #28a745;">✅ Tes Telah Diselesaikan</h2>
-                <p>Seorang kandidat telah berhasil menyelesaikan tes psikotes. Berikut adalah detail lengkapnya:</p>
-            </div>
+    <div class="header">
+        <h1>🎉 Test Completion Notification</h1>
+        <p>DWP Psikotes System</p>
+    </div>
 
-            <div class="candidate-info">
-                <h3 style="margin-top: 0; color: #1976d2;">📋 Informasi Kandidat</h3>
-                
-                <div class="info-row">
-                    <span class="info-label">👤 Nama Kandidat:</span>
-                    <span class="info-value"><strong>{{ $candidateName }}</strong></span>
-                </div>
-                
-                <div class="info-row">
-                    <span class="info-label">📧 Email:</span>
-                    <span class="info-value">{{ $candidateEmail }}</span>
-                </div>
-                
-                <div class="info-row">
-                    <span class="info-label">🏢 Posisi:</span>
-                    <span class="info-value">{{ $candidatePosition }}</span>
-                </div>
-                
-                <div class="info-row">
-                    <span class="info-label">📝 Nama Tes:</span>
-                    <span class="info-value"><strong>{{ $testName }}</strong></span>
-                </div>
-                
-                <div class="info-row">
-                    <span class="info-label">🎯 Target Posisi:</span>
-                    <span class="info-value">{{ $targetPosition }}</span>
-                </div>
-                
-                <div class="info-row">
-                    <span class="info-label">📊 Skor:</span>
-                    <span class="info-value"><strong>{{ $score }}/100</strong></span>
-                </div>
-                
-                <div class="info-row">
-                    <span class="info-label">⏰ Waktu Selesai:</span>
-                    <span class="info-value">{{ $completedAt }}</span>
-                </div>
-                
-                <div class="info-row">
-                    <span class="info-label">📈 Status:</span>
-                    <span class="info-value">
-                        <span class="status-badge">SELESAI</span>
-                    </span>
-                </div>
-            </div>
+    <div class="content">
+        <h2>Hello Admin!</h2>
+        <p>A candidate has successfully completed their test. Here are the details:</p>
 
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="{{ $resultLink }}" class="cta-button">
-                    🔍 Lihat Hasil Lengkap
-                </a>
+        <div class="info-box">
+            <h3>📋 Test Information</h3>
+            <div class="info-row">
+                <span class="label">Test Name:</span>
+                <span class="value">{{ $testName }}</span>
             </div>
-
-            <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <h4 style="margin-top: 0; color: #856404;">💡 Informasi Penting:</h4>
-                <ul style="margin: 0; padding-left: 20px; color: #856404;">
-                    <li>Hasil tes dapat dilihat melalui link di atas</li>
-                    <li>Data kandidat telah tersimpan di sistem</li>
-                    <li>Log aktivitas telah diperbarui di dashboard</li>
-                </ul>
+            <div class="info-row">
+                <span class="label">Target Position:</span>
+                <span class="value">{{ $targetPosition }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Completion Time:</span>
+                <span class="value">{{ $completedAt }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Score:</span>
+                <span class="value">{{ $score }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Status:</span>
+                <span class="status-badge">COMPLETED</span>
             </div>
         </div>
-        
-        <div class="footer">
-            <p><strong>DWP Psikotes System</strong></p>
-            <p>Email ini dikirim secara otomatis oleh sistem.</p>
-            <p>Jangan balas email ini. Untuk bantuan, hubungi tim IT.</p>
+
+        <div class="info-box">
+            <h3>👤 Candidate Information</h3>
+            <div class="info-row">
+                <span class="label">Name:</span>
+                <span class="value">{{ $candidateName }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Email:</span>
+                <span class="value">{{ $candidateEmail }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Position:</span>
+                <span class="value">{{ $candidatePosition }}</span>
+            </div>
         </div>
+
+        <div style="text-align: center;">
+            <a href="{{ config('app.url') }}/results" class="button">
+                View Results Dashboard
+            </a>
+        </div>
+
+        <p style="margin-top: 30px;">
+            <strong>Next Steps:</strong><br>
+            • Review the candidate's test results<br>
+            • Generate detailed reports if needed<br>
+            • Contact the candidate for follow-up if required
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>This is an automated notification from DWP Psikotes System.</p>
+        <p>Please do not reply to this email.</p>
     </div>
 </body>
 </html>

@@ -48,9 +48,15 @@ Route::get('candidate-tests/validate/{token}', [TestDistributionController::clas
 
 // Test endpoint without authentication
 Route::get('test-results', [App\Http\Controllers\ResultsController::class, 'index']);
+Route::get('results-public', [App\Http\Controllers\ResultsController::class, 'index']);
+Route::get('candidate-tests-public/{candidateTestId}/results', [App\Http\Controllers\TestDistributionController::class, 'getResults']);
+Route::get('activity-logs-public', [App\Http\Controllers\ActivityLogController::class, 'index']);
+Route::get('dashboard-public', [App\Http\Controllers\DashboardController::class, 'getDashboard']);
 Route::get('test-distributions-public', [App\Http\Controllers\TestDistributionController::class, 'getActiveDistributions']);
 Route::delete('test-distributions-public/{testId}', [App\Http\Controllers\TestDistributionController::class, 'deleteDistribution']);
 Route::post('test-distributions-public/create-from-package', [App\Http\Controllers\TestDistributionController::class, 'createDistributionFromPackage']);
+Route::delete('results-public/delete/{candidateTestId}', [App\Http\Controllers\TestDistributionController::class, 'deleteResult']);
+Route::get('candidates-public', [App\Http\Controllers\CandidateController::class, 'index']);
 Route::get('tests-public/{testId}/with-sections', [App\Http\Controllers\ManajemenTes\TestQuestionController::class, 'showTestWithSections']);
 Route::get('debug/test-questions/{testId}', function($testId) {
     $sections = \App\Models\TestSection::with('testQuestions')->where('test_id', $testId)->get();
@@ -275,6 +281,12 @@ Route::middleware('auth:api')->group(function () {
     Route::post('candidates/add-to-test-distribution', [CandidateController::class, 'addToTestDistribution'])
         ->middleware('role:super_admin,admin');
     Route::post('candidates/remove-from-test-distribution', [CandidateController::class, 'removeFromTestDistribution'])
+        ->middleware('role:super_admin,admin');
+
+    // Import/Export candidates - harus didefinisikan sebelum resource route
+    Route::get('candidates/template', [CandidateController::class, 'downloadTemplate'])
+        ->middleware('role:super_admin,admin');
+    Route::post('candidates/import', [CandidateController::class, 'import'])
         ->middleware('role:super_admin,admin');
 
     Route::apiResource('candidates', CandidateController::class)

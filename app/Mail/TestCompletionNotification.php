@@ -25,16 +25,8 @@ class TestCompletionNotification extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(
-        string $candidateName,
-        string $candidateEmail,
-        string $candidatePosition,
-        string $testName,
-        string $targetPosition,
-        int $score,
-        string $completedAt,
-        string $resultLink
-    ) {
+    public function __construct($candidateName, $candidateEmail, $candidatePosition, $testName, $targetPosition, $score, $completedAt, $resultLink)
+    {
         $this->candidateName = $candidateName;
         $this->candidateEmail = $candidateEmail;
         $this->candidatePosition = $candidatePosition;
@@ -51,7 +43,7 @@ class TestCompletionNotification extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "🎉 Tes Psikotes Selesai - {$this->candidateName}",
+            subject: 'Test Completion Notification - ' . $this->candidateName,
         );
     }
 

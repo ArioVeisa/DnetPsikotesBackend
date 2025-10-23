@@ -64,23 +64,34 @@ class CaasResultController extends Controller
         ];
 
         foreach ($answers as $answer) {
-            $question = CaasQuestion::find($answer['question_id']);
-            if ($question) {
-                $option = CaasOption::find($answer['option_id']);
-                if ($option) {
-                    switch ($question->category_id) {
-                        case 1:
-                            $scores['concern'] += $option->score;
-                            break;
-                        case 2:
-                            $scores['control'] += $option->score;
-                            break;
-                        case 3:
-                            $scores['curiosity'] += $option->score;
-                            break;
-                        case 4:
-                            $scores['confidence'] += $option->score;
-                            break;
+            // Skip jika tidak ada option_id (tidak dijawab)
+            if (empty($answer['option_id'])) {
+                continue;
+            }
+            
+            // Get the test_question record to get the actual question details
+            $testQuestion = \App\Models\TestQuestion::find($answer['question_id']);
+            
+            if ($testQuestion && $testQuestion->question_type === 'caas') {
+                // Get the actual caas question using the question_id from test_questions
+                $question = CaasQuestion::find($testQuestion->question_id);
+                if ($question) {
+                    $option = CaasOption::find($answer['option_id']);
+                    if ($option) {
+                        switch ($question->category_id) {
+                            case 1:
+                                $scores['concern'] += $option->score;
+                                break;
+                            case 2:
+                                $scores['control'] += $option->score;
+                                break;
+                            case 3:
+                                $scores['curiosity'] += $option->score;
+                                break;
+                            case 4:
+                                $scores['confidence'] += $option->score;
+                                break;
+                        }
                     }
                 }
             }

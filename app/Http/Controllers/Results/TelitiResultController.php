@@ -63,9 +63,20 @@ class TelitiResultController extends Controller
         $totalQuestions = $section->testQuestions()->count();
 
         foreach ($answers as $answer) {
-            $question = TelitiQuestion::find($answer['question_id']);
-            if ($question && $question->correct_option_id == $answer['answer_id']) {
-                $score += 1;
+            // Skip jika tidak ada answer_id (tidak dijawab)
+            if (empty($answer['answer_id'])) {
+                continue;
+            }
+            
+            // Get the test_question record to get the actual question details
+            $testQuestion = \App\Models\TestQuestion::find($answer['question_id']);
+            
+            if ($testQuestion && $testQuestion->question_type === 'teliti') {
+                // Get the actual teliti question using the question_id from test_questions
+                $question = TelitiQuestion::find($testQuestion->question_id);
+                if ($question && $question->correct_option_id == $answer['answer_id']) {
+                    $score += 1;
+                }
             }
         }
 

@@ -32,6 +32,11 @@ class TestQuestion extends Model
             default => null
         };
         
+        // Log untuk debug DISC questions
+        if ($this->question_type === 'DISC' && $question) {
+            \Log::info("DISC Question Detail: " . json_encode($question->toArray()));
+        }
+        
         return $question;
     }
 }

@@ -9,6 +9,9 @@ use App\Services\LogActivityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class CandidateController extends Controller
 {
@@ -319,5 +322,204 @@ class CandidateController extends Controller
             'success' => true,
             'message' => 'Kandidat berhasil dihapus dari test distribution'
         ]);
+    }
+
+    /**
+     * Download template Excel untuk import candidates
+     */
+    public function downloadTemplate()
+    {
+        try {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            
+            // Set header
+            $headers = [
+                'A1' => 'NIK',
+                'B1' => 'Nama',
+                'C1' => 'Email',
+                'D1' => 'No Telepon',
+                'E1' => 'Posisi',
+                'F1' => 'Tanggal Lahir',
+                'G1' => 'Jenis Kelamin',
+                'H1' => 'Departemen'
+            ];
+            
+            foreach ($headers as $cell => $value) {
+                $sheet->setCellValue($cell, $value);
+            }
+            
+            // Set sample data dengan NIK unik dan format tanggal yang fleksibel
+            $sampleData = [
+                ['9876543210987654', 'Ahmad Rizki', 'ahmad.rizki@example.com', '081234567890', 'Software Developer', '15-01-1990', 'male', 'IT'],
+                ['8765432109876543', 'Siti Nurhaliza', 'siti.nurhaliza@example.com', '081234567891', 'UI/UX Designer', '20-05-1992', 'female', 'Design'],
+                ['7654321098765432', 'Budi Santoso', 'budi.santoso@example.com', '081234567892', 'Project Manager', '10-12-1988', 'male', 'Management']
+            ];
+            
+            $row = 2;
+            foreach ($sampleData as $data) {
+                $col = 'A';
+                foreach ($data as $value) {
+                    $sheet->setCellValue($col . $row, $value);
+                    $col++;
+                }
+                $row++;
+            }
+            
+            // Set column widths
+            $sheet->getColumnDimension('A')->setWidth(20);
+            $sheet->getColumnDimension('B')->setWidth(25);
+            $sheet->getColumnDimension('C')->setWidth(30);
+            $sheet->getColumnDimension('D')->setWidth(15);
+            $sheet->getColumnDimension('E')->setWidth(25);
+            $sheet->getColumnDimension('F')->setWidth(15);
+            $sheet->getColumnDimension('G')->setWidth(15);
+            $sheet->getColumnDimension('H')->setWidth(20);
+            
+            // Create response
+            $writer = new Xlsx($spreadsheet);
+            $fileName = 'template-candidates.xlsx';
+            
+            // Save to temporary file first
+            $tempFile = tempnam(sys_get_temp_dir(), 'template_');
+            $writer->save($tempFile);
+            
+            return response()->download($tempFile, $fileName, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])->deleteFileAfterSend(true);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membuat template: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Import candidates dari Excel file
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:10240', // Max 10MB
+            'test_package_id' => 'required|integer|exists:tests,id'
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $testPackageId = $request->test_package_id;
+            
+            // Import hanya validasi data, tidak membuat test distribution
+            // Test distribution akan dibuat saat "Send All"
+            
+            // Load Excel file
+            $spreadsheet = IOFactory::load($file->getPathname());
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
+            
+            // Skip header row
+            $data = array_slice($rows, 1);
+            
+            $importedCount = 0;
+            $errors = [];
+            
+            foreach ($data as $index => $row) {
+                $rowNumber = $index + 2; // +2 because we skip header and array is 0-indexed
+                
+                try {
+                    // Validate required fields
+                    if (empty($row[0]) || empty($row[1]) || empty($row[2]) || empty($row[3]) || 
+                        empty($row[4]) || empty($row[5]) || empty($row[6]) || empty($row[7])) {
+                        $errors[] = "Baris {$rowNumber}: Semua kolom harus diisi";
+                        continue;
+                    }
+                    
+                    // Validate NIK format (minimal 8 digit, maksimal 20 digit)
+                    $nik = trim($row[0]);
+                    if (!preg_match('/^\d{8,20}$/', $nik)) {
+                        $errors[] = "Baris {$rowNumber}: NIK harus 8-20 digit angka";
+                        continue;
+                    }
+                    
+                    // Validate email
+                    $email = trim($row[2]);
+                    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        $errors[] = "Baris {$rowNumber}: Format email tidak valid";
+                        continue;
+                    }
+                    
+                    // Validate gender
+                    $gender = strtolower(trim($row[6]));
+                    if (!in_array($gender, ['male', 'female'])) {
+                        $errors[] = "Baris {$rowNumber}: Jenis kelamin harus 'male' atau 'female'";
+                        continue;
+                    }
+                    
+                    // Validate and normalize date format
+                    $birthDate = trim($row[5]);
+                    $normalizedDate = null;
+                    
+                    // Try different date formats
+                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthDate)) {
+                        // Already in YYYY-MM-DD format
+                        $normalizedDate = $birthDate;
+                    } elseif (preg_match('/^\d{2}-\d{2}-\d{4}$/', $birthDate)) {
+                        // DD-MM-YYYY format, convert to YYYY-MM-DD
+                        $parts = explode('-', $birthDate);
+                        $normalizedDate = $parts[2] . '-' . $parts[1] . '-' . $parts[0];
+                    } elseif (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $birthDate)) {
+                        // DD/MM/YYYY format, convert to YYYY-MM-DD
+                        $parts = explode('/', $birthDate);
+                        $normalizedDate = $parts[2] . '-' . $parts[1] . '-' . $parts[0];
+                    } else {
+                        $errors[] = "Baris {$rowNumber}: Format tanggal lahir tidak valid. Gunakan DD-MM-YYYY, DD/MM/YYYY, atau YYYY-MM-DD";
+                        continue;
+                    }
+                    
+                    // Validate that the date is valid
+                    if (!strtotime($normalizedDate)) {
+                        $errors[] = "Baris {$rowNumber}: Tanggal lahir tidak valid";
+                        continue;
+                    }
+                    
+                    // Validasi data berhasil, tambahkan ke array untuk dikembalikan ke frontend
+                    $candidateData = [
+                        'nik' => $nik,
+                        'name' => trim($row[1]),
+                        'email' => $email,
+                        'phone_number' => trim($row[3]),
+                        'position' => trim($row[4]),
+                        'birth_date' => $normalizedDate,
+                        'gender' => $gender,
+                        'department' => trim($row[7])
+                    ];
+                    
+                    $importedCandidates[] = $candidateData;
+                    $importedCount++;
+                    
+                } catch (\Exception $e) {
+                    $errors[] = "Baris {$rowNumber}: " . $e->getMessage();
+                }
+            }
+            
+            // Log activity
+            LogActivityService::addToLog("Imported {$importedCount} candidates from Excel file", $request);
+            
+            return response()->json([
+                'success' => true,
+                'imported_count' => $importedCount,
+                'errors' => $errors,
+                'message' => "Berhasil mengimpor {$importedCount} kandidat",
+                'candidates' => $importedCandidates,
+                'test_package_id' => $testPackageId
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengimpor file: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

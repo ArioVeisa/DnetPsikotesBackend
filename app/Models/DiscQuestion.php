@@ -19,6 +19,21 @@ class DiscQuestion extends Model
     {
         return $this->hasMany(DiscOption::class, 'question_id');
     }
+    
+    // Override toArray untuk memastikan options dikirim dengan benar
+    public function toArray()
+    {
+        $array = parent::toArray();
+        $array['options'] = $this->options->map(function($option) {
+            return [
+                'id' => $option->id,
+                'option_text' => $option->option_text,
+                'dimension_most' => $option->dimension_most,
+                'dimension_least' => $option->dimension_least,
+            ];
+        });
+        return $array;
+    }
 
     public function category()
     {

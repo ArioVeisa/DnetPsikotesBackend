@@ -75,7 +75,7 @@ class CandidateTest extends Model
      */
     public function telitiResults()
     {
-        return $this->hasMany(telitiResult::class);
+        return $this->hasMany(TelitiResult::class);
     }
 
     /**

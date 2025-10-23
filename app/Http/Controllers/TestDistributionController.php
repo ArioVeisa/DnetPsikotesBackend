@@ -150,29 +150,48 @@ class TestDistributionController extends Controller
 
             // Create Candidate model from TestDistributionCandidate dan simpan ke DB
             \Log::info('Creating Candidate model...');
-            $candidate = Candidate::create([
-                'name' => $testCandidate->name,
-                'email' => $testCandidate->email,
-                'position' => $testCandidate->position,
-                'nik' => $testCandidate->nik,
-                'phone_number' => $testCandidate->phone_number,
-                'birth_date' => $testCandidate->birth_date,
-                'gender' => $testCandidate->gender,
-                'department' => $testCandidate->department,
-            ]);
-            \Log::info('Candidate model created & saved', ['id' => $candidate->id]);
+            try {
+                $candidate = Candidate::create([
+                    'name' => $testCandidate->name,
+                    'email' => $testCandidate->email,
+                    'position' => $testCandidate->position,
+                    'nik' => $testCandidate->nik,
+                    'phone_number' => $testCandidate->phone_number,
+                    'birth_date' => $testCandidate->birth_date,
+                    'gender' => $testCandidate->gender,
+                    'department' => $testCandidate->department,
+                ]);
+                \Log::info('Candidate model created & saved', ['id' => $candidate->id]);
+            } catch (\Exception $e) {
+                // Jika ada duplicate NIK/email, cari candidate yang sudah ada
+                \Log::info('Candidate already exists, finding existing candidate...');
+                $candidate = Candidate::where('nik', $testCandidate->nik)
+                    ->orWhere('email', $testCandidate->email)
+                    ->first();
+                
+                if (!$candidate) {
+                    \Log::error('Failed to create or find candidate: ' . $e->getMessage());
+                    continue; // Skip candidate ini dan lanjut ke yang berikutnya
+                }
+                \Log::info('Using existing candidate', ['id' => $candidate->id]);
+            }
 
             // Create CandidateTest model
             \Log::info('Creating CandidateTest model...');
-            // Simpan CandidateTest ke database agar terhitung di daftar distribusi
-            $candidateTest = CandidateTest::create([
-                'candidate_id' => $candidate->id, // Gunakan ID dari Candidate yang baru dibuat
-                'test_id' => $test->id,
-                'test_distribution_id' => $testDistribution->id,
-                'unique_token' => (string) Str::uuid(),
-                'status' => CandidateTest::STATUS_NOT_STARTED,
-            ]);
-            \Log::info('CandidateTest model created & saved', ['id' => $candidateTest->id]);
+            try {
+                // Simpan CandidateTest ke database agar terhitung di daftar distribusi
+                $candidateTest = CandidateTest::create([
+                    'candidate_id' => $candidate->id, // Gunakan ID dari Candidate yang baru dibuat
+                    'test_id' => $test->id,
+                    'test_distribution_id' => $testDistribution->id,
+                    'unique_token' => (string) Str::uuid(),
+                    'status' => CandidateTest::STATUS_NOT_STARTED,
+                ]);
+                \Log::info('CandidateTest model created & saved', ['id' => $candidateTest->id]);
+            } catch (\Exception $e) {
+                \Log::error('Failed to create CandidateTest: ' . $e->getMessage());
+                continue; // Skip candidate ini dan lanjut ke yang berikutnya
+            }
 
             // Kirim email invitation
             \Log::info('Sending email invitation...');
@@ -188,7 +207,8 @@ class TestDistributionController extends Controller
             } catch (\Exception $e) {
                 \Log::error('Email sending failed: ' . $e->getMessage());
                 \Log::error('Stack trace: ' . $e->getTraceAsString());
-                throw $e;
+                // Jangan throw error, lanjutkan proses untuk candidate lain
+                \Log::info('Continuing with next candidate despite email failure');
             }
 
             $invitations[] = $testCandidate;
@@ -199,10 +219,23 @@ class TestDistributionController extends Controller
         $testName = $test->name;
         LogActivityService::addToLog("Invited {$candidateCount} candidates to test: {$testName}", $request);
 
+        $successCount = count($invitations);
+        $totalRequested = count($request->candidate_ids);
+        
+        if ($successCount === $totalRequested) {
+            $message = "Berhasil mengirim undangan test ke {$successCount} kandidat";
+        } elseif ($successCount > 0) {
+            $message = "Berhasil mengirim undangan test ke {$successCount} dari {$totalRequested} kandidat. Beberapa kandidat mungkin sudah terdaftar sebelumnya.";
+        } else {
+            $message = "Tidak ada undangan yang berhasil dikirim. Semua kandidat mungkin sudah terdaftar sebelumnya.";
+        }
+
         return response()->json([
-            'message' => 'Test invitations sent successfully',
+            'success' => true,
+            'message' => $message,
             'data' => $invitations,
-            'duplicate' => $duplicates,
+            'success_count' => $successCount,
+            'total_requested' => $totalRequested,
         ]);
     }
 
@@ -277,6 +310,9 @@ class TestDistributionController extends Controller
             \Log::info("startTest: Section {$section->id} has {$section->testQuestions->count()} questions");
             
             $section->test_questions = $section->testQuestions->map(function ($testQuestion) {
+                \Log::info("startTest: Processing question {$testQuestion->id}, type: {$testQuestion->question_type}");
+                \Log::info("startTest: Question detail: " . json_encode($testQuestion->question_detail));
+                
                 return [
                     'id' => $testQuestion->id,
                     'question_id' => $testQuestion->question_id,
@@ -422,6 +458,18 @@ class TestDistributionController extends Controller
                             break;
                     }
                 }
+            }
+
+            // Send email notification to admin
+            try {
+                $emailService = app(\App\Services\TestCompletionEmailService::class);
+                $emailService->sendCompletionNotification($candidateTest);
+            } catch (\Exception $e) {
+                // Log error but don't fail the test completion
+                \Log::error('Failed to send completion email notification', [
+                    'candidate_test_id' => $candidateTest->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
 
             // Log activity: Candidate submitted test
@@ -632,23 +680,29 @@ class TestDistributionController extends Controller
     /**
      * Delete test distribution (only delete candidate tests, keep test package)
      */
-    public function deleteDistribution(Request $request, $distributionId)
+    public function deleteDistribution(Request $request, $testId)
     {
         try {
-            $distribution = \App\Models\TestDistribution::findOrFail($distributionId);
+            $distribution = \App\Models\TestDistribution::findOrFail($testId);
             
             // Skip authentication check for public endpoint
             // if (!auth()->user() || (auth()->user()->role !== 'super_admin' && auth()->user()->role !== 'admin')) {
             //     abort(403, 'Unauthorized action.');
             // }
 
-            // Check if there are any completed tests - prevent deletion if tests are completed
+            // Allow deletion even if tests are completed
+            // Just log the information for audit purposes
             $completedTests = $distribution->candidateTests()->where('status', CandidateTest::STATUS_COMPLETED)->count();
-            if ($completedTests > 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete test distribution that has completed tests'
-                ], 422);
+            $inProgressTests = $distribution->candidateTests()->where('status', CandidateTest::STATUS_IN_PROGRESS)->count();
+            
+            if ($completedTests > 0 || $inProgressTests > 0) {
+                // Log warning but allow deletion
+                \Log::warning("Deleting test distribution with completed/in-progress tests", [
+                    'distribution_id' => $distribution->id,
+                    'distribution_name' => $distribution->name,
+                    'completed_tests' => $completedTests,
+                    'in_progress_tests' => $inProgressTests
+                ]);
             }
 
             // Delete related candidate tests and test distribution candidates
@@ -662,9 +716,14 @@ class TestDistributionController extends Controller
             // Log activity
             LogActivityService::addToLog("Deleted test distribution: {$distribution->name} (removed {$candidateTestsCount} candidate tests)", $request);
 
+            $message = 'Test distribution deleted successfully. Template test package preserved for future use.';
+            if ($completedTests > 0 || $inProgressTests > 0) {
+                $message .= " Note: {$completedTests} completed tests and {$inProgressTests} in-progress tests were also removed.";
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Test distribution deleted successfully. Template test package preserved for future use.'
+                'message' => $message
             ]);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -806,6 +865,147 @@ class TestDistributionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve candidate tests: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Delete individual candidate test result
+     */
+    public function deleteResult($candidateTestId)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Log activity before deletion (skip if candidate doesn't exist)
+            try {
+                LogActivityService::addToLog(
+                    'DELETE_INDIVIDUAL_RESULT',
+                    request(),
+                    'success',
+                    [
+                        'entity_type' => 'candidate_test',
+                        'entity_id' => $candidateTestId
+                    ]
+                );
+            } catch (\Exception $logError) {
+                // Continue without logging if there's an error
+                \Log::warning('Failed to log delete activity', ['error' => $logError->getMessage()]);
+            }
+
+            // Find candidate test by ID
+            $candidateTest = CandidateTest::find($candidateTestId);
+            
+            if (!$candidateTest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Candidate test not found'
+                ], 404);
+            }
+
+            // Delete candidate answers for this test
+            $answersDeleted = CandidateAnswer::where('candidate_test_id', $candidateTest->id)->delete();
+            
+            // Delete result records for this test
+            $discResultsDeleted = \App\Models\DiscResult::where('candidate_test_id', $candidateTest->id)->delete();
+            $caasResultsDeleted = \App\Models\CaasResult::where('candidate_test_id', $candidateTest->id)->delete();
+            $telitiResultsDeleted = \App\Models\TelitiResult::where('candidate_test_id', $candidateTest->id)->delete();
+            
+            // Reset candidate test to not started
+            $candidateTest->update([
+                'status' => 'not_started',
+                'completed_at' => null,
+                'score' => null,
+                'updated_at' => now()
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Individual result deleted successfully',
+                'data' => [
+                    'candidate_test_id' => $candidateTest->id,
+                    'candidate_id' => $candidateTest->candidate_id,
+                    'answers_deleted' => $answersDeleted,
+                    'disc_results_deleted' => $discResultsDeleted,
+                    'caas_results_deleted' => $caasResultsDeleted,
+                    'teliti_results_deleted' => $telitiResultsDeleted,
+                    'candidate_test_reset' => 'Candidate test reset to not started'
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            \Log::error('Failed to delete individual result', [
+                'candidate_test_id' => $candidateTestId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete individual result',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get test results for a specific candidate test
+     */
+    public function getResults(Request $request, $candidateTestId)
+    {
+        try {
+            $candidateTest = \App\Models\CandidateTest::with([
+                'candidate:id,name,email,position,nik,phone_number,birth_date,gender,department',
+                'test:id,name,target_position',
+                'discResults',
+                'caasResults', 
+                'telitiResults'
+            ])->findOrFail($candidateTestId);
+
+            // Check if test is completed
+            if ($candidateTest->status !== \App\Models\CandidateTest::STATUS_COMPLETED) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Test is not completed yet'
+                ], 400);
+            }
+
+            // Get test sections to understand what results to expect
+            $testSections = \App\Models\TestSection::where('test_id', $candidateTest->test_id)
+                ->orderBy('sequence')
+                ->get();
+
+            $results = [
+                'candidate_test' => $candidateTest,
+                'test_sections' => $testSections,
+                'disc_results' => $candidateTest->discResults,
+                'caas_results' => $candidateTest->caasResults,
+                'teliti_results' => $candidateTest->telitiResults,
+            ];
+
+            // Log activity
+            LogActivityService::addToLog("Viewed test results for candidate test ID: {$candidateTestId}", $request);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Test results retrieved successfully',
+                'data' => $results
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Candidate test not found'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve test results: ' . $e->getMessage()
             ], 500);
         }
     }
