@@ -58,5 +58,5 @@ RUN composer dump-autoload --optimize
 # Expose port
 EXPOSE 8000
 
-# Start PHP-FPM
-CMD ["php-fpm"]
+# Start Laravel development server
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
