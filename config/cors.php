@@ -19,7 +19,13 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => [
+        'https://dnet-piskotest-front-end.vercel.app',
+        'https://cuddly-orbit-6795pjrxr6x376v-8000.app.github.dev',
+        'http://localhost:3000',
+        'http://localhost:3001',
+        '*'
+    ],
 
     'allowed_origins_patterns' => [],
 
@@ -29,6 +35,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    'supports_credentials' => true,
 
 ];
