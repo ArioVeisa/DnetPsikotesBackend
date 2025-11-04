@@ -33,6 +33,22 @@ services:
     networks:
       - app-network
 
+  frontend:
+    build:
+      context: ../DNet-Psikotes-Integration
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    volumes:
+      - ../DNet-Psikotes-Integration:/app:cached
+      - /app/node_modules
+    depends_on:
+      - web
+    networks:
+      - app-network
+
   db:
     image: postgres:15
     restart: always
