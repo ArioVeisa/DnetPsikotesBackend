@@ -29,7 +29,7 @@ class TestInvitationMail extends Mailable
     public function build()
     {
         // FE base url diambil dari .env
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $frontendUrl = env('FRONTEND_URL', 'https://gertude-uncategorised-laurene.ngrok-free.dev');
 
         return $this->subject('Undangan Tes: ' . $this->test->name)
             ->markdown('emails.test_invitation')

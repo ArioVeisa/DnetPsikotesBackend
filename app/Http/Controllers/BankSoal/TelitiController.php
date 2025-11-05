@@ -14,9 +14,17 @@ class TelitiController extends Controller
 {
     public function index()
     {
-        $question = TelitiQuestion::with('options')->get();
+        $questions = TelitiQuestion::with('options')->get();
+
+        // Tandai opsi mana yang benar pada response agar frontend bisa auto-centang
+        $questions->each(function ($q) {
+            $q->options->each(function ($opt) use ($q) {
+                $opt->is_correct = $opt->id === $q->correct_option_id;
+            });
+        });
+
         return response()->json([
-            'data' => $question,
+            'data' => $questions,
             'status' => 'success',
             'message' => 'Questions retrieved successfully'
         ], 200);
@@ -103,8 +111,12 @@ class TelitiController extends Controller
         // Log activity: HRD creating teliti question
         LogActivityService::addToLog("Created teliti question: {$question->question_text}", $request);
 
+        $question->load('options');
+        $question->options->each(function ($opt) use ($question) {
+            $opt->is_correct = $opt->id === $question->correct_option_id;
+        });
         return response()->json([
-            'data' => $question->load('options'),
+            'data' => $question,
             'status' => 'success',
             'message' => 'Question created successfully'
         ], 201);
@@ -176,8 +188,12 @@ class TelitiController extends Controller
         // Log activity: HRD updating teliti question
         LogActivityService::addToLog("Updated teliti question: {$question->question_text}", $request);
 
+        $question->load('options');
+        $question->options->each(function ($opt) use ($question) {
+            $opt->is_correct = $opt->id === $question->correct_option_id;
+        });
         return response()->json([
-            'data' => $question->load('options'),
+            'data' => $question,
             'status' => 'success',
             'message' => 'Question updated successfully'
         ], 200);
@@ -186,6 +202,9 @@ class TelitiController extends Controller
     public function show($id)
     {
         $question = TelitiQuestion::with('options')->findOrFail($id);
+        $question->options->each(function ($opt) use ($question) {
+            $opt->is_correct = $opt->id === $question->correct_option_id;
+        });
         return response()->json([
             'data' => $question,
             'status' => 'success',
