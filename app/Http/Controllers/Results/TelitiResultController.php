@@ -68,7 +68,8 @@ class TelitiResultController extends Controller
                 continue;
             }
             
-            // Get the test_question record to get the actual question details
+            // candidate_answers.question_id sekarang menyimpan test_question.id
+            // Cari test_question untuk mendapatkan question_id asli
             $testQuestion = \App\Models\TestQuestion::find($answer['question_id']);
             
             if ($testQuestion && $testQuestion->question_type === 'teliti') {

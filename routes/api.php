@@ -315,6 +315,7 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/test-package/{id}/duplicate', [TestController::class, 'duplicate']);
 
         Route::post('/candidate-tests/invite', [TestDistributionController::class, 'inviteCandidates']);
+        Route::post('/candidate-tests/resend-invitations', [TestDistributionController::class, 'resendInvitations']);
         Route::get('/candidate-tests', [TestDistributionController::class, 'getAllCandidateTests']);
         Route::delete('/test-distributions/{testId}', [TestDistributionController::class, 'deleteDistribution']);
         Route::post('/test-distributions/create-from-package', [TestDistributionController::class, 'createDistributionFromPackage']);

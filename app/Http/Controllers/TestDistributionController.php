@@ -272,6 +272,87 @@ class TestDistributionController extends Controller
     }
 
     /**
+     * Resend invitations for multiple candidates (using test_distribution_candidate_id)
+     */
+    public function resendInvitations(Request $request)
+    {
+        $request->validate([
+            'test_distribution_id' => 'required|exists:test_distributions,id',
+            'candidate_ids' => 'required|array',
+            'candidate_ids.*' => 'exists:test_distribution_candidates,id',
+        ]);
+
+        $testDistribution = \App\Models\TestDistribution::findOrFail($request->test_distribution_id);
+        $test = $testDistribution->templateTest;
+        $sent = 0;
+        $failed = 0;
+
+        foreach ($request->candidate_ids as $testDistributionCandidateId) {
+            try {
+                $testDistributionCandidate = TestDistributionCandidate::findOrFail($testDistributionCandidateId);
+                
+                // Cari atau buat CandidateTest
+                $candidateTest = CandidateTest::where('test_distribution_id', $testDistribution->id)
+                    ->whereHas('candidate', function($q) use ($testDistributionCandidate) {
+                        $q->where('email', $testDistributionCandidate->email);
+                    })
+                    ->first();
+
+                if (!$candidateTest) {
+                    // Jika belum ada CandidateTest, buat baru
+                    $candidate = Candidate::where('email', $testDistributionCandidate->email)->first();
+                    if (!$candidate) {
+                        $candidate = Candidate::create([
+                            'nik' => $testDistributionCandidate->nik ?? '',
+                            'name' => $testDistributionCandidate->name,
+                            'phone_number' => $testDistributionCandidate->phone_number ?? '',
+                            'email' => $testDistributionCandidate->email,
+                            'position' => $testDistributionCandidate->position ?? '',
+                            'birth_date' => $testDistributionCandidate->birth_date ?? now()->format('Y-m-d'),
+                            'gender' => $testDistributionCandidate->gender ?? 'male',
+                            'department' => $testDistributionCandidate->department ?? '',
+                        ]);
+                    }
+
+                    $candidateTest = CandidateTest::create([
+                        'candidate_id' => $candidate->id,
+                        'test_id' => $test->id,
+                        'test_distribution_id' => $testDistribution->id,
+                        'unique_token' => (string) Str::uuid(),
+                        'status' => CandidateTest::STATUS_NOT_STARTED,
+                    ]);
+                }
+
+                // Regenerate token
+                $newToken = $candidateTest->regenerateToken();
+
+                // Kirim email
+                Mail::to($testDistributionCandidate->email)->send(new TestInvitationMail(
+                    $candidateTest->candidate,
+                    $candidateTest,
+                    $test,
+                    $request->custom_message
+                ));
+
+                $sent++;
+            } catch (\Exception $e) {
+                \Log::error('Failed to resend invitation for test_distribution_candidate_id: ' . $testDistributionCandidateId, [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                $failed++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully resent {$sent} invitation(s). " . ($failed > 0 ? "{$failed} failed." : ''),
+            'sent' => $sent,
+            'failed' => $failed,
+        ]);
+    }
+
+    /**
      * Start the test (via token)
      */
     public function startTest(Request $request, $token)
@@ -505,10 +586,13 @@ class TestDistributionController extends Controller
         $section = TestSection::findOrFail($answerData['section_id']);
         $sectionType = strtolower($section->section_type);
 
+        // Frontend sekarang mengirim test_question.id (bukan question_id asli)
+        $testQuestion = \App\Models\TestQuestion::find($answerData['question_id']);
+        
         $data = [
             'candidate_test_id' => $candidateTestId,
             'section_id' => $answerData['section_id'],
-            'question_id' => $answerData['question_id'],
+            'question_id' => $answerData['question_id'], // Simpan test_question.id
         ];
 
         switch ($sectionType) {
@@ -519,8 +603,13 @@ class TestDistributionController extends Controller
 
             case 'teliti':
                 $data['selected_option_id'] = $answerData['selected_option_id'];
-                $question = TelitiQuestion::findOrFail($answerData['question_id']);
-                $data['is_correct'] = $question->correct_option_id == $answerData['selected_option_id'];
+                // $testQuestion sudah dicari di atas, gunakan untuk validasi
+                if ($testQuestion && $testQuestion->question_type === 'teliti') {
+                    $question = TelitiQuestion::find($testQuestion->question_id);
+                    if ($question) {
+                        $data['is_correct'] = $question->correct_option_id == $answerData['selected_option_id'];
+                    }
+                }
                 break;
 
             case 'caas':
