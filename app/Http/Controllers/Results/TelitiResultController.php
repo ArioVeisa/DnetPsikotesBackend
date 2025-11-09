@@ -117,4 +117,36 @@ class TelitiResultController extends Controller
             return 'SANGAT KURANG AKURAT';
         }
     }
+
+    /**
+     * Recalculate category for all teliti results that have null or empty category
+     * This is useful for updating old data that was created before category calculation was added
+     */
+    public function recalculateCategories()
+    {
+        try {
+            $results = TelitiResult::whereNull('category')
+                ->orWhere('category', '')
+                ->get();
+
+            $updated = 0;
+            foreach ($results as $result) {
+                $category = $this->getCategory($result->score);
+                $result->category = $category;
+                $result->save();
+                $updated++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Updated {$updated} teliti results with category",
+                'updated_count' => $updated
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to recalculate categories: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

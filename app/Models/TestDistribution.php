@@ -23,8 +23,8 @@ class TestDistribution extends Model
     ];
 
     protected $casts = [
-        'started_date' => 'date',
-        'ended_date' => 'date',
+        'started_date' => 'datetime',
+        'ended_date' => 'datetime',
     ];
 
     // Status constants

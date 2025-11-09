@@ -42,8 +42,20 @@ return [
             'encryption' => env('MAIL_ENCRYPTION', 'tls'),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            'timeout' => 10, // Reduce timeout to 10 seconds untuk fail faster
             'local_domain' => env('MAIL_EHLO_DOMAIN'),
+            'verify_peer' => false, // Disable SSL verification jika ada masalah certificate
+        ],
+        
+        // Alternative SMTP configuration dengan port 465 (SSL)
+        'smtp_ssl' => [
+            'transport' => 'smtp',
+            'host' => env('MAIL_HOST', 'smtp.gmail.com'),
+            'port' => env('MAIL_PORT_SSL', 465),
+            'encryption' => 'ssl',
+            'username' => env('MAIL_USERNAME'),
+            'password' => env('MAIL_PASSWORD'),
+            'timeout' => 10,
         ],
 
         'ses' => [

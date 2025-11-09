@@ -43,7 +43,7 @@ class TestCompletionNotification extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Test Completion Notification - ' . $this->candidateName,
+            subject: 'Notifikasi Penyelesaian Tes - ' . $this->candidateName,
         );
     }
 

@@ -95,6 +95,10 @@ class TestDistributionController extends Controller
     {
         \Log::info('Invite candidates request:', $request->all());
         
+        // Set max execution time untuk request ini (120 detik)
+        // Ini penting karena email sending bisa lambat jika SMTP tidak dikonfigurasi dengan benar
+        set_time_limit(120);
+        
         $request->validate([
             'candidate_ids' => 'required|array',
             'candidate_ids.*' => 'exists:test_distribution_candidates,id',
@@ -134,8 +138,12 @@ class TestDistributionController extends Controller
         }
 
         $invitations = [];
+        $failedEmails = [];
+        $mailDriver = config('mail.default');
 
         \Log::info('Starting invitation process...');
+        \Log::info('Mail driver: ' . $mailDriver);
+        
         foreach ($request->candidate_ids as $testCandidateId) {
             \Log::info('Processing candidate ID:', ['id' => $testCandidateId]);
             $testCandidate = TestDistributionCandidate::findOrFail($testCandidateId);
@@ -171,6 +179,11 @@ class TestDistributionController extends Controller
                 
                 if (!$candidate) {
                     \Log::error('Failed to create or find candidate: ' . $e->getMessage());
+                    $failedEmails[] = [
+                        'email' => $testCandidate->email,
+                        'name' => $testCandidate->name,
+                        'reason' => 'Failed to create or find candidate',
+                    ];
                     continue; // Skip candidate ini dan lanjut ke yang berikutnya
                 }
                 \Log::info('Using existing candidate', ['id' => $candidate->id]);
@@ -190,28 +203,68 @@ class TestDistributionController extends Controller
                 \Log::info('CandidateTest model created & saved', ['id' => $candidateTest->id]);
             } catch (\Exception $e) {
                 \Log::error('Failed to create CandidateTest: ' . $e->getMessage());
+                $failedEmails[] = [
+                    'email' => $testCandidate->email,
+                    'name' => $testCandidate->name,
+                    'reason' => 'Failed to create CandidateTest',
+                ];
                 continue; // Skip candidate ini dan lanjut ke yang berikutnya
             }
 
             // Kirim email invitation
-            \Log::info('Sending email invitation...');
+            // Note: Email sending bisa lambat jika SMTP tidak dikonfigurasi dengan benar
+            // Untuk development, bisa gunakan MAIL_MAILER=log untuk testing
+            \Log::info('Sending email invitation to: ' . $testCandidate->email);
+            $emailSent = false;
+            $emailError = null;
+            
             try {
-                // Use send instead of queue for immediate error feedback
+                $startTime = microtime(true);
+                
                 Mail::to($testCandidate->email)->send(new TestInvitationMail(
                     $candidate,
                     $candidateTest,
                     $test,
                     $request->custom_message
                 ));
-                \Log::info('Email sent successfully');
+                
+                $endTime = microtime(true);
+                $duration = round($endTime - $startTime, 2);
+                $emailSent = true;
+                \Log::info('Email sent successfully to: ' . $testCandidate->email . ' (took ' . $duration . 's)');
+                
+                // Only add to invitations if email was actually sent
+                $invitations[] = $testCandidate;
+            } catch (\Symfony\Component\Mailer\Exception\TransportExceptionInterface $e) {
+                // Handle SMTP/transport connection errors (Symfony Mailer)
+                $emailError = $e->getMessage();
+                \Log::error('Email transport error for ' . $testCandidate->email . ': ' . $emailError);
+                \Log::error('Full exception: ' . $e->getTraceAsString());
+                
+                $failedEmails[] = [
+                    'email' => $testCandidate->email,
+                    'name' => $testCandidate->name,
+                    'reason' => 'Email transport error: ' . $emailError,
+                ];
             } catch (\Exception $e) {
-                \Log::error('Email sending failed: ' . $e->getMessage());
-                \Log::error('Stack trace: ' . $e->getTraceAsString());
-                // Jangan throw error, lanjutkan proses untuk candidate lain
-                \Log::info('Continuing with next candidate despite email failure');
+                // Handle other email errors
+                $emailError = $e->getMessage();
+                \Log::error('Email sending failed for ' . $testCandidate->email . ': ' . $emailError);
+                \Log::error('Exception class: ' . get_class($e));
+                \Log::error('Full exception: ' . $e->getTraceAsString());
+                
+                $failedEmails[] = [
+                    'email' => $testCandidate->email,
+                    'name' => $testCandidate->name,
+                    'reason' => 'Email sending failed: ' . $emailError,
+                ];
             }
-
-            $invitations[] = $testCandidate;
+            
+            // Log warning if using 'log' driver (emails are not actually sent)
+            if ($mailDriver === 'log' && $emailSent) {
+                \Log::warning('⚠️ MAIL_MAILER is set to "log" - email was logged but NOT actually sent to ' . $testCandidate->email);
+                \Log::warning('⚠️ Check storage/logs/laravel.log for the email content');
+            }
         }
 
         // Log activity: HRD inviting candidates to test
@@ -221,22 +274,67 @@ class TestDistributionController extends Controller
 
         $successCount = count($invitations);
         $totalRequested = count($request->candidate_ids);
+        $failedCount = count($failedEmails);
         
-        if ($successCount === $totalRequested) {
+        // Build response message
+        $message = "";
+        $warningMessage = "";
+        
+        if ($mailDriver === 'log') {
+            $warningMessage = "⚠️ WARNING: MAIL_MAILER is set to 'log'. Emails are logged but NOT actually sent. Check storage/logs/laravel.log for email content.";
+            \Log::warning($warningMessage);
+        }
+        
+        if ($successCount === $totalRequested && $failedCount === 0) {
             $message = "Berhasil mengirim undangan test ke {$successCount} kandidat";
         } elseif ($successCount > 0) {
-            $message = "Berhasil mengirim undangan test ke {$successCount} dari {$totalRequested} kandidat. Beberapa kandidat mungkin sudah terdaftar sebelumnya.";
+            $message = "Berhasil mengirim undangan test ke {$successCount} dari {$totalRequested} kandidat";
+            if ($failedCount > 0) {
+                $message .= ". {$failedCount} email gagal dikirim.";
+            }
         } else {
-            $message = "Tidak ada undangan yang berhasil dikirim. Semua kandidat mungkin sudah terdaftar sebelumnya.";
+            $message = "Tidak ada undangan yang berhasil dikirim";
+            if ($failedCount > 0) {
+                $message .= ". {$failedCount} email gagal dikirim.";
+            } else {
+                $message .= ". Semua kandidat mungkin sudah terdaftar sebelumnya.";
+            }
         }
-
-        return response()->json([
-            'success' => true,
+        
+        // Determine success status
+        $success = $successCount > 0;
+        
+        $response = [
+            'success' => $success,
             'message' => $message,
             'data' => $invitations,
             'success_count' => $successCount,
             'total_requested' => $totalRequested,
+            'failed_count' => $failedCount,
+        ];
+        
+        // Add warning if using log driver
+        if ($warningMessage) {
+            $response['warning'] = $warningMessage;
+        }
+        
+        // Add failed emails details if any
+        if ($failedCount > 0) {
+            $response['failed_emails'] = $failedEmails;
+        }
+        
+        // Log summary
+        \Log::info('Invitation process completed:', [
+            'success_count' => $successCount,
+            'failed_count' => $failedCount,
+            'total_requested' => $totalRequested,
+            'mail_driver' => $mailDriver,
         ]);
+        
+        // Return appropriate HTTP status
+        $statusCode = $success ? 200 : 207; // 207 Multi-Status if partial success
+        
+        return response()->json($response, $statusCode);
     }
 
     /**
@@ -358,7 +456,7 @@ class TestDistributionController extends Controller
     public function startTest(Request $request, $token)
     {
         $candidateTest = CandidateTest::where('unique_token', $token)
-            ->with(['test.sections', 'candidate'])
+            ->with(['test.sections', 'candidate', 'testDistribution'])
             ->firstOrFail();
 
         if ($candidateTest->status === CandidateTest::STATUS_COMPLETED) {
@@ -371,6 +469,34 @@ class TestDistributionController extends Controller
 
         if ($candidateTest->isExpired()) {
             abort(403, 'This test link has expired.');
+        }
+
+        // Validate session time (start_date and end_date from test distribution)
+        $testDistribution = $candidateTest->testDistribution;
+        if ($testDistribution) {
+            $now = now();
+            $startDate = $testDistribution->started_date;
+            $endDate = $testDistribution->ended_date;
+
+            // Check if test session has started
+            if ($startDate && $now < $startDate) {
+                return response()->json([
+                    'error' => 'TEST_NOT_STARTED',
+                    'message' => 'The test session has not started yet.',
+                    'start_date' => $startDate->toISOString(),
+                    'end_date' => $endDate ? $endDate->toISOString() : null,
+                ], 403);
+            }
+
+            // Check if test session has ended
+            if ($endDate && $now > $endDate) {
+                return response()->json([
+                    'error' => 'TEST_SESSION_ENDED',
+                    'message' => 'The test session has ended.',
+                    'start_date' => $startDate ? $startDate->toISOString() : null,
+                    'end_date' => $endDate->toISOString(),
+                ], 403);
+            }
         }
 
         if ($candidateTest->status === CandidateTest::STATUS_NOT_STARTED) {
@@ -424,10 +550,20 @@ class TestDistributionController extends Controller
                 });
         }
 
+        // Get start_date and end_date from test distribution
+        $startDate = null;
+        $endDate = null;
+        if ($testDistribution) {
+            $startDate = $testDistribution->started_date ? $testDistribution->started_date->toISOString() : null;
+            $endDate = $testDistribution->ended_date ? $testDistribution->ended_date->toISOString() : null;
+        }
+
         return response()->json([
             'test' => $candidateTest->test,
             'candidate' => $candidateTest->candidate,
             'started_at' => $candidateTest->started_at,
+            'start_date' => $startDate, // Session start date/time
+            'end_date' => $endDate,     // Session end date/time
             'sections' => $sections->isEmpty() ? null : $sections,
             'questions' => $questions,
         ]);
@@ -836,8 +972,8 @@ class TestDistributionController extends Controller
         $request->validate([
             'test_id' => 'required|exists:tests,id',
             'session_name' => 'required|string|max:255',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'start_date' => 'required|date', // Accepts both date and datetime
+            'end_date' => 'required|date|after:start_date', // Accepts both date and datetime
         ]);
 
         try {
@@ -1053,7 +1189,8 @@ class TestDistributionController extends Controller
                 'test:id,name,target_position',
                 'discResults',
                 'caasResults', 
-                'telitiResults'
+                'telitiResults',
+                'testDistribution'
             ])->findOrFail($candidateTestId);
 
             // Check if test is completed
@@ -1062,6 +1199,42 @@ class TestDistributionController extends Controller
                     'success' => false,
                     'message' => 'Test is not completed yet'
                 ], 400);
+            }
+
+            // Get candidate data, dengan fallback ke TestDistributionCandidate jika data tidak lengkap
+            $candidate = $candidateTest->candidate;
+            
+            // Jika candidate data tidak lengkap (null/empty), coba ambil dari TestDistributionCandidate
+            if ($candidateTest->test_distribution_id) {
+                $query = \App\Models\TestDistributionCandidate::where('test_distribution_id', $candidateTest->test_distribution_id);
+                
+                // Cari berdasarkan email atau name jika ada
+                if (!empty($candidate->email)) {
+                    $query->where('email', $candidate->email);
+                } elseif (!empty($candidate->name)) {
+                    $query->where('name', $candidate->name);
+                }
+                
+                $testDistributionCandidate = $query->first();
+                
+                if ($testDistributionCandidate) {
+                    // Merge data dari TestDistributionCandidate jika candidate data kosong atau null
+                    if (empty($candidate->nik) && !empty($testDistributionCandidate->nik)) {
+                        $candidate->nik = $testDistributionCandidate->nik;
+                    }
+                    if (empty($candidate->phone_number) && !empty($testDistributionCandidate->phone_number)) {
+                        $candidate->phone_number = $testDistributionCandidate->phone_number;
+                    }
+                    if (empty($candidate->email) && !empty($testDistributionCandidate->email)) {
+                        $candidate->email = $testDistributionCandidate->email;
+                    }
+                    if (empty($candidate->gender) && !empty($testDistributionCandidate->gender)) {
+                        $candidate->gender = $testDistributionCandidate->gender;
+                    }
+                    if (empty($candidate->position) && !empty($testDistributionCandidate->position)) {
+                        $candidate->position = $testDistributionCandidate->position;
+                    }
+                }
             }
 
             // Get test sections to understand what results to expect

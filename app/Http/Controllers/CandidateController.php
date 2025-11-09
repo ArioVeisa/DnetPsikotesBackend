@@ -20,8 +20,37 @@ class CandidateController extends Controller
      */
     public function index()
     {
-       $candidates = Candidate::all();
-        return response()->json($candidates);
+       $candidates = Candidate::with(['candidateTests' => function($query) {
+            $query->orderBy('created_at', 'desc');
+        }])->get()->map(function($candidate) {
+            // Tentukan status berdasarkan candidate tests
+            $candidateTests = $candidate->candidateTests;
+            
+            $status = 'Active'; // Default status
+            
+            if (!$candidateTests->isEmpty()) {
+                $latestTest = $candidateTests->first();
+                // Map status dari candidate_test ke status candidate
+                if ($latestTest->status === 'completed') {
+                    $status = 'Completed';
+                } elseif ($latestTest->status === 'in_progress') {
+                    $status = 'In Progress';
+                } elseif ($latestTest->status === 'not_started') {
+                    $status = 'Pending';
+                }
+            }
+            
+            // Tambahkan status ke array response
+            $candidateArray = $candidate->toArray();
+            $candidateArray['status'] = $status;
+            
+            // Hapus relasi candidateTests dari response (tidak diperlukan di frontend)
+            unset($candidateArray['candidate_tests']);
+            
+            return $candidateArray;
+        });
+        
+        return response()->json($candidates->values()->all());
     }
 
     /**

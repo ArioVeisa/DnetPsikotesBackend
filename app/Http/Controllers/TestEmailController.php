@@ -168,4 +168,106 @@ class TestEmailController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Test invitation email functionality
+     */
+    public function testInvitationEmail(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'email' => 'nullable|email',
+            ]);
+
+            $testEmail = $request->email ?? 'arioveisa@gmail.com';
+            
+            // Get first test or return error
+            $test = \App\Models\Test::first();
+            if (!$test) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada test yang tersedia. Silakan buat test terlebih dahulu.'
+                ], 404);
+            }
+
+            // Get or create candidate
+            $candidate = \App\Models\Candidate::where('email', $testEmail)->first();
+            if (!$candidate) {
+                $candidate = \App\Models\Candidate::create([
+                    'name' => 'Ida Ayu Kade',
+                    'email' => $testEmail,
+                    'nik' => '1234567890',
+                    'phone_number' => '081234567890',
+                    'position' => 'Staff',
+                    'birth_date' => now()->subYears(25)->format('Y-m-d'),
+                    'gender' => 'female',
+                    'department' => 'IT',
+                ]);
+            }
+
+            // Get or create test distribution
+            $testDistribution = \App\Models\TestDistribution::first();
+            if (!$testDistribution) {
+                $testDistribution = \App\Models\TestDistribution::create([
+                    'name' => 'Test Distribution Test',
+                    'test_id' => $test->id,
+                    'started_date' => now()->addDays(1),
+                    'ended_date' => now()->addDays(2),
+                ]);
+            } else {
+                // Update dates untuk test
+                $testDistribution->update([
+                    'started_date' => now()->addDays(1),
+                    'ended_date' => now()->addDays(2),
+                ]);
+            }
+
+            // Create or get candidate test
+            $candidateTest = \App\Models\CandidateTest::where('candidate_id', $candidate->id)
+                ->where('test_id', $test->id)
+                ->first();
+            
+            if (!$candidateTest) {
+                $candidateTest = \App\Models\CandidateTest::create([
+                    'candidate_id' => $candidate->id,
+                    'test_id' => $test->id,
+                    'test_distribution_id' => $testDistribution->id,
+                    'unique_token' => (string) \Illuminate\Support\Str::uuid(),
+                    'status' => \App\Models\CandidateTest::STATUS_NOT_STARTED,
+                ]);
+            }
+
+            // Send invitation email
+            \Mail::to($testEmail)->send(new \App\Mail\TestInvitationMail(
+                $candidate,
+                $candidateTest,
+                $test,
+                null // custom message
+            ));
+
+            $frontendUrl = env('FRONTEND_URL', 'https://gertude-uncategorised-laurene.ngrok-free.dev');
+            $testLink = $frontendUrl . '/test/' . $candidateTest->unique_token;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email invitation berhasil dikirim ke ' . $testEmail,
+                'data' => [
+                    'email' => $testEmail,
+                    'candidate_name' => $candidate->name,
+                    'test_name' => $test->name,
+                    'test_link' => $testLink,
+                    'test_duration' => floor($test->duration_minutes / 60) . ' jam ' . ($test->duration_minutes % 60) . ' menit',
+                    'start_date' => $testDistribution->started_date ? $testDistribution->started_date->format('d M Y, H:i') : null,
+                    'end_date' => $testDistribution->ended_date ? $testDistribution->ended_date->format('d M Y, H:i') : null,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim email invitation: ' . $e->getMessage(),
+                'error' => $e->getTraceAsString()
+            ], 500);
+        }
+    }
 }

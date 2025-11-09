@@ -226,6 +226,7 @@ Route::get('test-packages-public', [App\Http\Controllers\ManajemenTes\TestContro
 
 // Test email functionality (public for testing)
 Route::post('test-email-public', [App\Http\Controllers\TestEmailController::class, 'testEmailFunctionality']);
+Route::post('test-invitation-email-public', [App\Http\Controllers\TestEmailController::class, 'testInvitationEmail']);
 
 // Endpoint yang butuh autentikasi (token JWT)
 Route::middleware('auth:api')->group(function () {
@@ -322,6 +323,7 @@ Route::middleware('auth:api')->group(function () {
 
         // Result Test
         Route::apiResource('teliti-results', TelitiResultController::class);
+        Route::post('teliti-results/recalculate-categories', [TelitiResultController::class, 'recalculateCategories']);
         Route::apiResource('caas-results', CaasResultController::class);
         Route::apiResource('disc-results', DiscResultController::class);
         

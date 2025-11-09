@@ -30,17 +30,37 @@ class TestInvitationMail extends Mailable
     {
         // FE base url diambil dari .env
         $frontendUrl = env('FRONTEND_URL', 'https://gertude-uncategorised-laurene.ngrok-free.dev');
+        
+        // Get test distribution untuk mendapatkan start_date dan end_date
+        $testDistribution = $this->candidateTest->testDistribution;
+        $startDate = $testDistribution ? $testDistribution->started_date : null;
+        $endDate = $testDistribution ? $testDistribution->ended_date : null;
+        
+        // Format durasi test (dalam bahasa Indonesia)
+        $durationHours = floor($this->test->duration_minutes / 60);
+        $durationMinutes = $this->test->duration_minutes % 60;
+        $durationText = '';
+        if ($durationHours > 0) {
+            $durationText .= $durationHours . ' jam';
+        }
+        if ($durationMinutes > 0) {
+            if ($durationText) $durationText .= ' ';
+            $durationText .= $durationMinutes . ' menit';
+        }
 
         return $this->subject('Undangan Tes: ' . $this->test->name)
-            ->markdown('emails.test_invitation')
+            ->view('emails.test_invitation')
             ->with([
                 'candidate'        => $this->candidate,
                 'testLink'         => $frontendUrl . '/test/' . $this->candidateTest->unique_token,
                 'testName'         => $this->test->name,
-                'testDuration'     => $this->test->duration_minutes,
+                'testDuration'     => $durationText,
+                'testDurationMinutes' => $this->test->duration_minutes,
                 'testInstructions' => $this->test->instructions,
                 'customMessage'    => $this->customMessage,
-                'expiryDays'       => 7,
+                'startDate'        => $startDate,
+                'endDate'          => $endDate,
+                'frontendUrl'      => $frontendUrl,
             ]);
     }
 }
