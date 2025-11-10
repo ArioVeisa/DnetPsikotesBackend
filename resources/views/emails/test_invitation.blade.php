@@ -77,7 +77,7 @@
         .start-button {
             display: block;
             background-color: #2563eb;
-            color: #ffffff;
+            color: #ffffff !important;
             padding: 16px 32px;
             text-decoration: none;
             border-radius: 8px;
@@ -88,6 +88,8 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             transition: background-color 0.3s;
+            width: fit-content;
+            min-width: 200px;
         }
         .start-button:hover {
             background-color: #1d4ed8;
@@ -156,9 +158,11 @@
         </p>
 
         <!-- Start Test Button -->
-        <a href="{{ $testLink }}" class="start-button">
-            MULAI UJI
-        </a>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ $testLink }}" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; padding: 16px 32px; text-decoration: none; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; min-width: 200px; border: none;">
+                <span style="color: #ffffff !important; font-weight: bold;">MULAI UJI</span>
+            </a>
+        </div>
 
         <!-- Closing -->
         <div class="closing">

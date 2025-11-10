@@ -588,10 +588,15 @@ class TestDistributionController extends Controller
             }
 
             if ($candidateTest->status === CandidateTest::STATUS_COMPLETED) {
+                // Test already completed - return success instead of error
+                // This can happen if user clicks submit multiple times or refreshes page
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Tes sudah disubmit sebelumnya'
-                ], 400);
+                    'success' => true,
+                    'message' => 'Tes sudah disubmit sebelumnya',
+                    'completion_time' => $candidateTest->completed_at ? $candidateTest->completed_at->format('Y-m-d H:i:s') : now()->format('Y-m-d H:i:s'),
+                    'confirmation_code' => $this->generateConfirmationCode(),
+                    'candidate_test_id' => $candidateTest->id
+                ], 200);
             }
 
             $validator = Validator::make($request->all(), [
@@ -610,6 +615,15 @@ class TestDistributionController extends Controller
 
             foreach ($request->answers as $index => $answer) {
                 $section = TestSection::find($answer['section_id']);
+                
+                if (!$section) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Section tidak ditemukan pada jawaban index $index",
+                        'errors' => ['section_id' => ['Section tidak valid']]
+                    ], 422);
+                }
+                
                 $rules = [];
 
                 switch (strtolower($section->section_type)) {
@@ -621,6 +635,7 @@ class TestDistributionController extends Controller
                         break;
 
                     case 'teliti':
+                    case 'fast accuracy':
                         $rules = [
                             'selected_option_id' => 'required|exists:teliti_options,id',
                         ];
@@ -631,6 +646,13 @@ class TestDistributionController extends Controller
                             'selected_option_id' => 'required|exists:caas_options,id',
                         ];
                         break;
+                        
+                    default:
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Tipe section tidak valid: {$section->section_type}",
+                            'errors' => ['section_type' => ['Tipe section tidak dikenali']]
+                        ], 422);
                 }
 
                 $sectionValidator = Validator::make($answer, $rules);
