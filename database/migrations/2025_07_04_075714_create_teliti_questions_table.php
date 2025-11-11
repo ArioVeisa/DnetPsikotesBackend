@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->text('question_text');
             $table->string('media_path')->nullable();
+            $table->string('media_path_2')->nullable();
             $table->boolean('is_active')->default(true);
             $table->unsignedBigInteger('correct_option_id')->nullable(); // tanpa constraint dulu
             $table->foreignId('category_id')->constrained('teliti_categories');

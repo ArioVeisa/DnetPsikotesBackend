@@ -58,6 +58,7 @@ class TelitiController extends Controller
                 'question_text' => $validatedData['question_text'],
                 'category_id' => $validatedData['category_id'],
                 'media_path' => $request->file('media') ? $request->file('media')->store('media', 'public') : null,
+                'media_path_2' => $request->file('media_2') ? $request->file('media')->store('media', 'public') : null,
                 'is_active' => $request->input('is_active', true),
                 'correct_option_id' => null,
             ]);
@@ -91,7 +92,7 @@ class TelitiController extends Controller
                 $itemA = trim($parts[0]);
                 $itemB = trim($parts[1]);
                 $isSame = $itemA === $itemB;
-                
+
                 // Cari option yang sesuai dengan logika
                 $options = $question->options;
                 foreach ($options as $option) {
@@ -142,6 +143,7 @@ class TelitiController extends Controller
             'question_text' => $validatedData['question_text'],
             'category_id' => $validatedData['category_id'],
             'media_path' => $request->file('media') ? $request->file('media')->store('media', 'public') : null,
+            'media_path_2' => $request->file('media') ? $request->file('media_2')->store('media', 'public') : null,
             'is_active' => $request->input('is_active', true),
         ]);
 
@@ -168,7 +170,7 @@ class TelitiController extends Controller
                 $itemA = trim($parts[0]);
                 $itemB = trim($parts[1]);
                 $isSame = $itemA === $itemB;
-                
+
                 // Cari option yang sesuai dengan logika
                 $options = $question->options;
                 foreach ($options as $option) {

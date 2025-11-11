@@ -104,7 +104,7 @@ class TelitiQuestionImport implements ToModel, WithHeadingRow
             'category_id' => $row['category_id'],
             'is_active' => isset($row['is_active']) ? filter_var($row['is_active'], FILTER_VALIDATE_BOOLEAN) : true,
         ]);
-        
+
         $correctOptionId = null;
 
         for ($i = 1; $i <= 2; $i++) {
@@ -124,7 +124,7 @@ class TelitiQuestionImport implements ToModel, WithHeadingRow
                 $itemA = trim($parts[0]);
                 $itemB = trim($parts[1]);
                 $isSame = $itemA === $itemB;
-                
+
                 $options = $question->options;
                 foreach ($options as $option) {
                     $optionText = strtolower(trim($option->option_text));

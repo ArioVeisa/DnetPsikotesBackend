@@ -12,6 +12,7 @@ class TelitiQuestion extends Model
     protected $fillable = [
         'question_text',
         'media_path',
+        'media_path_2',
         'category_id',
         'category',
         'is_active',
